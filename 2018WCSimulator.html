@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2018 FIFA World Cup Russia - Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        wcYellow: '#FDD301',
+                        wcGreen: '#336F1B',
+                        wcLightGreen: '#ABCB2D',
+                        fifaBg: '#D30208',
+                        fifaCard: '#015386',
+                        fifaDark: '#013a60',
+                        fifaPanel: '#012744',
+                        bracketBg: '#013a60',
+                        bracketCard: '#015386'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['Courier New', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@500;700&family=Oswald:wght@400;600;700&display=swap');
+
+        body {
+            background-color: #D30208;
+            color: #ffffff;
+            font-family: 'Oswald', sans-serif;
+            user-select: none;
+        }
+
+        .font-teko { font-family: 'Teko', sans-serif; }
+
+        .fifa-card {
+            background: #015386;
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.4), inset 0px 1px 0px rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            transition: all 0.15s ease-in-out;
+            color: white;
+        }
+        .fifa-card-dark {
+            background: #013a60;
+            color: #e5e5e5;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .tab-btn { background: #012744; color: #94a3b8; clip-path: polygon(0 0, 92% 0, 100% 100%, 0% 100%); transition: all 0.2s; }
+        .tab-btn.active { background: #015386; color: #ffffff; font-weight: bold; }
+        
+        .sub-tab-btn { background: transparent; color: #94a3b8; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .sub-tab-btn.active { color: #FDD301; border-bottom: 2px solid #FDD301; }
+
+        /* 2018 Broadcast Scorebug Styles */
+        .scorebug-container {
+            width: 100%; max-width: 600px; mx-auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+        }
+        .flag-ribbon { width: 34px; height: 22px; border-radius: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); object-fit: cover; }
+
+        /* Match Engine Pitch */
+        .live-pitch {
+            background: #2e8b57;
+            background-image: repeating-linear-gradient(90deg, transparent, transparent 10%, rgba(255,255,255,0.05) 10%, rgba(255,255,255,0.05) 20%);
+            border: 2px solid rgba(255,255,255,0.7);
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.4);
+            overflow: hidden;
+        }
+        .pitch-line-center { position: absolute; left: 50%; top: 0; bottom: 0; border-left: 2px solid rgba(255,255,255,0.6); transform: translateX(-50%); }
+        .pitch-circle { position: absolute; left: 50%; top: 50%; width: 70px; height: 70px; border: 2px solid rgba(255,255,255,0.6); border-radius: 50%; transform: translate(-50%, -50%); }
+        .pitch-box-left { position: absolute; left: 0; top: 20%; bottom: 20%; width: 15%; border: 2px solid rgba(255,255,255,0.6); border-left: none; }
+        .pitch-box-right { position: absolute; right: 0; top: 20%; bottom: 20%; width: 15%; border: 2px solid rgba(255,255,255,0.6); border-right: none; }
+        
+        .player-dot {
+            width: 14px; height: 14px; border-radius: 50%; position: absolute; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.6);
+            transform: translate(-50%, -50%); transition: top 0.4s ease-out, left 0.4s ease-out; z-index: 10;
+        }
+        
+        #match-ball {
+            width: 8px; height: 8px; background-color: #ffffff; border-radius: 50%; position: absolute;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.8); z-index: 20;
+            border: 1px solid #1a1a1a;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0 30 Q 50 70 100 30" fill="none" stroke="%23336F1B" stroke-width="15"/><path d="M30 0 Q 70 50 30 100" fill="none" stroke="%23FF8C00" stroke-width="15"/><path d="M0 70 Q 50 30 100 70" fill="none" stroke="%2300BFFF" stroke-width="15"/><path d="M70 0 Q 30 50 70 100" fill="none" stroke="%231a1a1a" stroke-width="15"/></svg>');
+            background-size: cover;
+            transform: translate(-50%, -50%); transition: top 0.2s linear, left 0.2s linear;
+        }
+
+        #pitch-overlay {
+            position: absolute; inset: 0; background: white; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 30;
+        }
+
+        /* Vertical Squad Pitch */
+        .squad-pitch {
+            background: #2e8b57;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 10%, rgba(255,255,255,0.05) 10%, rgba(255,255,255,0.05) 20%);
+            border: 2px solid rgba(255,255,255,0.6);
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.4);
+            border-radius: 8px;
+            width: 100%;
+            max-width: 320px;
+            height: 480px;
+            margin: 0 auto;
+        }
+        .s-pitch-line-center { position: absolute; top: 50%; left: 0; right: 0; border-top: 2px solid rgba(255,255,255,0.5); transform: translateY(-50%); }
+        .s-pitch-circle { position: absolute; top: 50%; left: 50%; width: 70px; height: 70px; border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); }
+        .s-pitch-box-top { position: absolute; top: 0; left: 25%; right: 25%; height: 15%; border: 2px solid rgba(255,255,255,0.5); border-top: none; }
+        .s-pitch-box-bottom { position: absolute; bottom: 0; left: 25%; right: 25%; height: 15%; border: 2px solid rgba(255,255,255,0.5); border-bottom: none; }
+
+        .squad-player-token {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            display: flex; flex-direction: column; align-items: center;
+            cursor: pointer; z-index: 10;
+        }
+        .squad-player-token .spt-dot {
+            width: 24px; height: 24px; border-radius: 50%; background: #012744; border: 2px solid #fff;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.6);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 8px; font-weight: bold; color: white;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .squad-player-token:hover .spt-dot { transform: scale(1.15); box-shadow: 0 4px 8px rgba(0,0,0,0.8); }
+        .squad-player-token.selected .spt-dot { border-color: #FDD301; box-shadow: 0 0 10px #FDD301; transform: scale(1.15); }
+        .squad-player-token .spt-name {
+            background: rgba(0,0,0,0.8); color: white; font-size: 9px; padding: 1px 4px; border-radius: 3px;
+            margin-top: 2px; white-space: nowrap; font-weight: bold;
+        }
+
+        /* Training Drill */
+        .drill-area {
+            background-color: #011424;
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            border: 2px solid #013a60;
+            height: 300px;
+            cursor: crosshair;
+        }
+        .drill-target {
+            position: absolute;
+            width: 30px; height: 30px;
+            background: radial-gradient(circle, #FDD301 0%, #d4af37 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(253, 211, 1, 0.6);
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            display: none;
+        }
+
+        /* Bracket Styles */
+        .bracket-container {
+            background-color: #013a60;
+            border-radius: 8px;
+            padding: 1.5rem;
+            position: relative;
+            overflow-x: auto;
+            border: 2px solid rgba(255,255,255,0.1);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+        }
+        
+        .b-match-pair {
+            background: #015386;
+            box-shadow: inset 1px 1px 2px rgba(255,255,255,0.2), 2px 4px 6px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 4px 8px;
+            width: 155px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .b-match-pair.center-card { width: 220px; padding: 10px 16px; border-radius: 14px; background: #026cae; }
+        .b-team-row { display: flex; align-items: center; justify-content: space-between; height: 24px; }
+        .b-team-row img { width: 26px; height: 16px; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.6); object-fit: cover; }
+        .b-score { font-family: 'Oswald', sans-serif; font-size: 16px; font-weight: bold; color: white; }
+        .b-seed { font-size: 10px; color: #cbd5e1; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; font-weight: bold;}
+        .b-pen-score { font-size: 10px; color: #ff6b6b; margin-left: 2px; font-weight: bold; }
+
+        .bracket-banner {
+            position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%);
+            width: 280px; background: linear-gradient(180deg, #D30208 0%, #990000 100%);
+            clip-path: polygon(0 0, 100% 0, 100% 90%, 50% 100%, 0 90%); z-index: 0;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.4); border-left: 2px solid rgba(255,255,255,0.2); border-right: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #012744; border-radius: 3px; border: 1px solid rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden relative">
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none"></div>
+
+    <header class="bg-fifaDark text-white px-6 py-2 flex items-center justify-between border-b-4 border-wcYellow relative z-10 shadow-lg">
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-3">
+                <img src="https://upload.wikimedia.org/wikipedia/en/thumb/6/67/2018_FIFA_World_Cup.svg/1280px-2018_FIFA_World_Cup.svg.png" alt="2018 Logo" class="h-9 w-auto drop-shadow-md">
+                <span class="text-2xl font-bold tracking-wider font-teko uppercase text-wcYellow">2018 FIFA World Cup™</span>
+            </div>
+            <span class="text-[10px] bg-red-700 text-white px-2 py-0.5 rounded uppercase tracking-widest font-sans font-semibold shadow" id="game-mode-badge">MANAGER MODE</span>
+        </div>
+        <div class="flex items-center space-x-6">
+            <div class="flex items-center space-x-2 bg-black/40 px-3 py-1.5 rounded shadow-inner border border-white/10 cursor-pointer hover:bg-black/60 transition" onclick="openSelectTeamModal()">
+                <span class="flag-ribbon" id="user-team-flag"></span>
+                <span id="user-team-name" class="font-bold text-lg tracking-wide uppercase text-wcYellow">SPAIN</span>
+                <i class="fa-solid fa-caret-down text-gray-400 text-xs ml-1"></i>
+            </div>
+        </div>
+    </header>
+
+    <nav class="bg-fifaDark/95 px-6 pt-2 flex space-x-1 border-b border-white/10 relative z-10 shadow-md overflow-x-auto">
+        <button onclick="switchTab('central')" id="tab-central" class="tab-btn active px-8 py-2 font-teko text-xl tracking-wider flex items-center space-x-2 whitespace-nowrap">
+            <i class="fa-solid fa-house text-sm"></i><span>CENTRAL</span>
+        </button>
+        <button onclick="switchTab('squad')" id="tab-squad" class="tab-btn px-8 py-2 font-teko text-xl tracking-wider flex items-center space-x-2 whitespace-nowrap">
+            <i class="fa-solid fa-users text-sm"></i><span>SQUAD & TRAINING</span>
+        </button>
+        <button onclick="switchTab('fixtures')" id="tab-fixtures" class="tab-btn px-8 py-2 font-teko text-xl tracking-wider flex items-center space-x-2 whitespace-nowrap">
+            <i class="fa-solid fa-list-check text-sm"></i><span>FIXTURES</span>
+        </button>
+        <button onclick="switchTab('tables')" id="tab-tables" class="tab-btn px-8 py-2 font-teko text-xl tracking-wider flex items-center space-x-2 whitespace-nowrap">
+            <i class="fa-solid fa-sitemap text-sm"></i><span>BRACKET & GROUPS</span>
+        </button>
+        <button onclick="switchTab('music')" id="tab-music" class="tab-btn px-8 py-2 font-teko text-xl tracking-wider flex items-center space-x-2 whitespace-nowrap text-sky-300">
+            <i class="fa-solid fa-music text-sm"></i><span>MUSIC</span>
+        </button>
+    </nav>
+
+    <main class="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full relative z-10">
+        <!-- ================= CENTRAL DASHBOARD ================= -->
+        <div id="view-central" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                
+                <div class="fifa-card col-span-1 md:col-span-2 p-4 rounded-lg flex flex-col justify-between border-l-4 border-red-500 group relative overflow-hidden">
+                    <div class="fifa-tile-header -mx-4 -mt-4 p-3 mb-2 flex justify-between items-center border-b border-white/10">
+                        <span class="font-teko text-2xl tracking-wider text-white font-bold uppercase"><i class="fa-solid fa-play text-red-400 mr-2"></i>NEXT MATCH</span>
+                        <span class="text-xs bg-fifaPanel text-wcYellow font-mono px-2 py-0.5 rounded uppercase shadow" id="next-fixture-stage">MATCHDAY</span>
+                    </div>
+                    <div class="flex items-center justify-around py-4 z-10 relative">
+                        <div class="text-center w-1/3">
+                            <img id="next-home-flag" class="w-16 h-10 object-cover mx-auto shadow-lg rounded border border-black/50" src="" alt="Home">
+                            <div id="next-home-name" class="font-bold text-lg md:text-xl mt-2 uppercase truncate text-white">...</div>
+                        </div>
+                        <div class="text-center w-1/3 flex flex-col items-center">
+                            <span class="font-teko text-4xl font-bold text-white">VS</span>
+                            <div class="text-[10px] text-white font-semibold uppercase bg-fifaPanel px-2 py-1 rounded shadow mt-1 border border-white/10" id="next-fixture-date">--</div>
+                        </div>
+                        <div class="text-center w-1/3">
+                            <img id="next-away-flag" class="w-16 h-10 object-cover mx-auto shadow-lg rounded border border-black/50" src="" alt="Away">
+                            <div id="next-away-name" class="font-bold text-lg md:text-xl mt-2 uppercase truncate text-white">...</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 mt-2 z-10 relative" id="play-buttons-container">
+                        <button onclick="startLiveMatch()" class="bg-red-700 hover:bg-red-800 text-white py-3 rounded font-bold uppercase tracking-wider shadow-lg flex items-center justify-center space-x-2 transition border border-red-500">
+                            <i class="fa-solid fa-futbol"></i><span>PLAY MATCH</span>
+                        </button>
+                        <button onclick="quickSimulateAction()" class="bg-fifaPanel hover:bg-black text-wcYellow py-3 rounded font-bold uppercase tracking-wider shadow-lg flex items-center justify-center space-x-2 transition border border-white/10">
+                            <i class="fa-solid fa-forward-fast"></i><span>SIM MATCH</span>
+                        </button>
+                    </div>
+                    <i class="fa-solid fa-trophy absolute -bottom-6 -right-6 text-9xl text-white opacity-[0.03] z-0"></i>
+                </div>
+
+                <div onclick="switchTab('tables')" class="fifa-card p-4 rounded-lg flex flex-col justify-between cursor-pointer hover:border-red-500 transition shadow-md">
+                    <div class="fifa-tile-header -mx-4 -mt-4 p-3 mb-2 flex justify-between items-center border-b border-white/10">
+                        <span class="font-teko text-2xl tracking-wider text-white font-bold uppercase"><i class="fa-solid fa-table-list text-red-400 mr-2"></i>STANDINGS</span>
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
+                    </div>
+                    <div id="central-tables-preview" class="space-y-2 text-sm font-sans flex-1"></div>
+                </div>
+
+                <div onclick="openLeaderboardModal()" class="fifa-card-dark p-4 rounded-lg flex flex-col justify-between text-white border-t-4 border-wcYellow cursor-pointer hover:bg-fifaPanel transition shadow-md">
+                    <div class="fifa-tile-header -mx-4 -mt-4 p-3 mb-2 flex justify-between items-center bg-black/20 border-b border-white/5">
+                        <span class="font-teko text-2xl tracking-wider text-wcYellow font-bold uppercase"><i class="fa-solid fa-star mr-2 text-wcYellow"></i>PERFORMERS</span>
+                        <span class="text-[10px] text-gray-400">RANKINGS <i class="fa-solid fa-up-right-from-square ml-1"></i></span>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center space-y-3" id="star-performer-card"></div>
+                </div>
+
+                <div class="fifa-card p-4 rounded-lg flex flex-col justify-between col-span-1 md:col-span-2 lg:col-span-4 shadow-md">
+                    <div class="fifa-tile-header -mx-4 -mt-4 p-3 mb-2 flex justify-between items-center border-b border-white/10">
+                        <span class="font-teko text-2xl tracking-wider text-white font-bold uppercase"><i class="fa-solid fa-info-circle text-red-400 mr-2"></i>TOURNAMENT STATUS</span>
+                    </div>
+                    <div class="flex flex-col md:flex-row justify-between text-sm space-y-2 md:space-y-0 mt-2">
+                        <div class="flex space-x-6 items-center">
+                            <div><span class="font-bold text-gray-300 mr-2">Current Date:</span><span class="font-mono bg-black/30 px-2 rounded" id="stat-date">14 JUN</span></div>
+                            <div><span class="font-bold text-gray-300 mr-2">Matches Played:</span><span class="font-mono bg-black/30 px-2 rounded" id="stat-matches">0/64</span></div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                             <span class="text-xs text-gray-400 italic">*Background matches auto-sim when you advance.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= SQUAD & TRAINING ================= -->
+        <div id="view-squad" class="hidden space-y-4">
+            
+            <div class="flex space-x-6 border-b border-white/10 mb-4 px-2">
+                <button onclick="toggleSquadSubTab('tactics')" id="subtab-tactics" class="sub-tab-btn active pb-2 font-bold uppercase text-sm font-sans tracking-wide">Squad & Tactics</button>
+                <button onclick="toggleSquadSubTab('training')" id="subtab-training" class="sub-tab-btn pb-2 font-bold uppercase text-sm font-sans tracking-wide">Training Center</button>
+            </div>
+
+            <!-- Tactics View -->
+            <div id="pane-tactics" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Left: Pitch -->
+                <div class="fifa-card-dark p-4 rounded-lg flex flex-col items-center">
+                    <div class="w-full flex justify-between items-center mb-2">
+                        <span class="font-teko text-2xl font-bold uppercase text-wcYellow" id="squad-title-name">ROSTER</span>
+                        <span class="text-[10px] text-gray-400">*Click 2 players to swap</span>
+                    </div>
+                    <div class="squad-pitch" id="squad-pitch-container">
+                        <div class="s-pitch-line-center"></div><div class="s-pitch-circle"></div>
+                        <div class="s-pitch-box-top"></div><div class="s-pitch-box-bottom"></div>
+                        <!-- Players injected here -->
+                    </div>
+                </div>
+
+                <!-- Right: Reserves & Selected Player Stats -->
+                <div class="lg:col-span-2 flex flex-col space-y-4">
+                    <div class="fifa-card-dark p-4 rounded-lg flex-1">
+                        <span class="font-teko text-xl font-bold uppercase text-wcYellow border-b border-white/10 pb-1 mb-2 block">RESERVES (BENCH)</span>
+                        <div class="space-y-1 max-h-[220px] overflow-y-auto custom-scroll pr-2" id="reserves-list-container">
+                            <!-- Reserves injected here -->
+                        </div>
+                    </div>
+
+                    <div class="fifa-card-dark p-4 rounded-lg">
+                        <span class="font-teko text-xl font-bold uppercase text-wcYellow border-b border-white/10 pb-1 mb-3 block">SELECTED PLAYER</span>
+                        <div id="selected-player-card" class="flex flex-col md:flex-row justify-between items-center">
+                            <div class="text-center text-gray-500 italic py-4 w-full">Select a player on the pitch or bench.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Training View -->
+            <div id="pane-training" class="hidden grid grid-cols-1 gap-4">
+                <div class="fifa-card-dark p-4 md:p-6 rounded-lg shadow-xl border-2 border-wcYellow">
+                    <div class="flex justify-between items-center border-b border-white/10 pb-2 mb-4">
+                        <div>
+                            <h2 class="font-teko text-3xl font-bold uppercase text-wcYellow">Reaction Drill</h2>
+                            <p class="text-xs text-gray-400">Click targets quickly. Dot lasts 1 second. Earn points to upgrade attributes.</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs text-gray-400 uppercase">Upgrade Points</span>
+                            <div class="text-3xl font-mono font-bold text-red-500" id="upgrade-points-display">0</div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col md:flex-row gap-6 mb-4 items-center">
+                        <div class="w-full md:w-1/3">
+                            <label class="text-xs text-gray-400 font-bold uppercase mb-1 block">Target Player (To Upgrade)</label>
+                            <select id="training-player-select" class="w-full bg-[#011424] text-white border border-white/20 p-2 rounded text-sm font-bold" onchange="renderTrainingPlayerStats()"></select>
+                            
+                            <div id="training-player-stats" class="mt-4 bg-[#011424] p-3 rounded border border-white/10">
+                                <!-- Stats injected here -->
+                            </div>
+                        </div>
+                        <div class="w-full md:w-2/3">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-sm font-bold text-wcYellow">Drill Score: <span id="drill-score">0</span></span>
+                                <button onclick="startTrainingDrill()" id="btn-start-drill" class="bg-red-700 hover:bg-red-800 text-white px-4 py-1.5 rounded text-sm font-bold shadow uppercase transition border border-red-500">Start Drill</button>
+                            </div>
+                            <div class="drill-area" id="drill-area">
+                                <div class="drill-target" id="drill-target" onmousedown="hitDrillTarget()"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap justify-center gap-2 pt-4 border-t border-white/10">
+                        <span class="w-full text-center text-xs text-gray-400 uppercase mb-1 font-bold">Spend 1 Point to Upgrade:</span>
+                        <button onclick="applyUpgrade('pac')" class="bg-[#012744] hover:bg-[#015386] text-white border border-white/10 px-4 py-2 rounded text-xs font-bold transition">+1 PAC</button>
+                        <button onclick="applyUpgrade('sho')" class="bg-[#012744] hover:bg-[#015386] text-white border border-white/10 px-4 py-2 rounded text-xs font-bold transition">+1 SHO</button>
+                        <button onclick="applyUpgrade('pas')" class="bg-[#012744] hover:bg-[#015386] text-white border border-white/10 px-4 py-2 rounded text-xs font-bold transition">+1 PAS</button>
+                        <button onclick="applyUpgrade('dri')" class="bg-[#012744] hover:bg-[#015386] text-white border border-white/10 px-4 py-2 rounded text-xs font-bold transition">+1 DRI</button>
+                        <button onclick="applyUpgrade('def')" class="bg-[#012744] hover:bg-[#015386] text-white border border-white/10 px-4 py-2 rounded text-xs font-bold transition">+1 DEF</button>
+                        <button onclick="applyUpgrade('phy')" class="bg-[#012744] hover:bg-[#015386] text-white border border-white/10 px-4 py-2 rounded text-xs font-bold transition">+1 PHY</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= FIXTURES ================= -->
+        <div id="view-fixtures" class="hidden space-y-6">
+            <div class="fifa-card p-4 md:p-6 rounded-lg shadow-lg">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
+                    <span class="font-teko text-3xl font-bold uppercase text-white">TOURNAMENT FIXTURES</span>
+                    <select id="fixture-filter" onchange="renderFixturesList()" class="bg-fifaPanel text-wcYellow font-bold px-3 py-1 rounded uppercase text-xs shadow cursor-pointer border border-white/10">
+                        <option value="all">View All Matches</option>
+                        <option value="user">My Team Only</option>
+                    </select>
+                </div>
+                <div id="fixtures-list-container" class="space-y-4 max-h-[600px] overflow-y-auto custom-scroll pr-2"></div>
+            </div>
+        </div>
+
+        <!-- ================= TABLES & BRACKET ================= -->
+        <div id="view-tables" class="hidden space-y-6">
+            <div class="fifa-card p-4 md:p-6 rounded-lg shadow-lg">
+                <span class="font-teko text-3xl font-bold uppercase text-white border-b border-white/10 block mb-4">GROUP STAGE STANDINGS</span>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="group-tables-grid"></div>
+            </div>
+            
+            <div class="bracket-container shadow-2xl">
+                <div class="flex bg-fifaDark text-wcYellow text-sm font-bold uppercase py-1.5 px-4 mb-4 rounded shadow-md justify-between min-w-[1020px] border border-white/10">
+                    <div class="w-40 text-center">R16</div>
+                    <div class="w-40 text-center">QTR</div>
+                    <div class="w-40 text-center">SEMI</div>
+                    <div class="w-48 text-center text-white">FINAL</div>
+                    <div class="w-40 text-center">SEMI</div>
+                    <div class="w-40 text-center">QTR</div>
+                    <div class="w-40 text-center">R16</div>
+                </div>
+
+                <div class="flex justify-between items-center min-w-[1020px] pb-4 relative" id="auth-bracket-container">
+                    <svg class="absolute inset-0 w-full h-full pointer-events-none z-0" id="bracket-lines"></svg>
+                    <div class="bracket-banner flex justify-center items-start pt-6 rounded shadow-lg">
+                        <img src="https://upload.wikimedia.org/wikipedia/en/thumb/6/67/2018_FIFA_World_Cup.svg/1280px-2018_FIFA_World_Cup.svg.png" alt="World Cup Logo" class="w-20 h-auto drop-shadow-xl object-contain mt-2">
+                    </div>
+
+                    <div class="flex flex-col justify-around h-[560px] z-10" id="b-r16-left"></div>
+                    <div class="flex flex-col justify-around h-[560px] z-10" id="b-qf-left"></div>
+                    <div class="flex flex-col justify-around h-[560px] z-10" id="b-sf-left"></div>
+                    
+                    <div class="flex flex-col justify-center items-center h-[560px] space-y-16 z-20 relative px-4" id="b-center"></div>
+
+                    <div class="flex flex-col justify-around h-[560px] items-end z-10" id="b-sf-right"></div>
+                    <div class="flex flex-col justify-around h-[560px] items-end z-10" id="b-qf-right"></div>
+                    <div class="flex flex-col justify-around h-[560px] items-end z-10" id="b-r16-right"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MUSIC ROOM ================= -->
+        <div id="view-music" class="hidden space-y-6">
+            <div class="fifa-card p-6 rounded-lg shadow-lg flex flex-col items-center">
+                <h2 class="font-teko text-4xl font-bold uppercase text-white mb-2"><i class="fa-solid fa-headphones mr-2 text-wcYellow"></i> MUSIC ROOM</h2>
+                <p class="text-sm font-bold text-gray-300 mb-6 border-b border-white/10 pb-2 w-full text-center">Vibe to the sounds of 2018 while managing your squad.</p>
+                
+                <div class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="aspect-video rounded-xl overflow-hidden shadow-2xl border-4 border-fifaDark bg-black">
+                        <iframe width="100%" height="100%" src="https://www.youtube.com/embed/F-r93aeaERY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                    <div class="aspect-video rounded-xl overflow-hidden shadow-2xl border-4 border-fifaDark bg-black">
+                        <iframe width="100%" height="100%" src="https://www.youtube.com/embed/NmduNUTr8Bw" title="YouTube video player 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ================= MODALS & OVERLAYS ================= -->
+    
+    <!-- 1-SECOND FLASH OVERLAY -->
+    <div id="sim-flash-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-[110] hidden flex items-center justify-center p-4">
+        <!-- 2018 Modern Scorebug -->
+        <div class="flex flex-col items-center w-full max-w-lg mx-auto drop-shadow-2xl scale-110 transition-transform">
+            <div class="text-white text-[10px] font-bold tracking-widest bg-black/70 px-6 py-1 rounded-t-lg uppercase shadow border-t border-x border-white/10" id="flash-stage-name">MATCH RESULT</div>
+            <div class="flex w-full h-16 bg-[#012744] rounded-b-lg overflow-hidden border border-white/20 shadow-2xl">
+                <!-- Home Team -->
+                <div class="flex-1 bg-[#b81e24] flex items-center justify-between px-4 border-r border-[#012744] relative">
+                    <div class="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent pointer-events-none"></div>
+                    <img id="flash-home-flag" class="w-10 h-6 object-cover rounded shadow border border-black/30 z-10" src="" alt="Home">
+                    <span id="flash-home-name" class="text-white font-bold text-3xl font-teko uppercase z-10">RUS</span>
+                </div>
+                <!-- Score -->
+                <div class="w-32 bg-[#012744] flex items-center justify-center space-x-3 px-2 text-white font-mono text-3xl font-bold relative">
+                    <span id="flash-home-score">0</span>
+                    <i class="fa-solid fa-diamond text-[8px] text-wcYellow mb-1"></i>
+                    <span id="flash-away-score">0</span>
+                    <div id="flash-extra-text" class="absolute -bottom-1 w-full text-center text-[9px] text-red-500 font-bold uppercase hidden">AET</div>
+                </div>
+                <!-- Away Team -->
+                <div class="flex-1 bg-[#b81e24] flex items-center justify-between px-4 border-l border-[#012744] relative">
+                    <div class="absolute inset-0 bg-gradient-to-l from-black/20 to-transparent pointer-events-none"></div>
+                    <span id="flash-away-name" class="text-white font-bold text-3xl font-teko uppercase z-10">KSA</span>
+                    <img id="flash-away-flag" class="w-10 h-6 object-cover rounded shadow border border-black/30 z-10" src="" alt="Away">
+                </div>
+            </div>
+            <div class="text-[10px] text-gray-500 font-mono mt-4">SIMULATION COMPLETE</div>
+        </div>
+    </div>
+
+    <!-- INITIAL SETUP MODAL -->
+    <div id="setup-modal" class="fixed inset-0 bg-[#012744] z-[100] flex items-center justify-center p-4 bg-cover bg-center" style="background-image: url('https://upload.wikimedia.org/wikipedia/en/thumb/6/67/2018_FIFA_World_Cup.svg/1280px-2018_FIFA_World_Cup.svg.png'); background-blend-mode: multiply; background-color: rgba(1,39,68,0.92);">
+        <div class="fifa-card max-w-3xl w-full p-6 md:p-8 rounded-xl shadow-2xl flex flex-col relative overflow-hidden">
+            <div class="text-center mb-6">
+                <h1 class="font-teko text-5xl font-bold uppercase text-white mb-2">2018 FIFA WORLD CUP SIMULATOR</h1>
+                <p class="text-sm font-bold text-gray-300 bg-black/30 py-1 rounded inline-block px-4 shadow-inner border border-white/10">Initialize New Tournament</p>
+            </div>
+            
+            <div class="flex space-x-4 mb-4">
+                <button onclick="tempGameMode='manager'; updateSetupUI();" id="setup-btn-mgr" class="flex-1 py-3 rounded font-bold uppercase text-lg border-4 border-red-600 bg-red-600 text-white shadow-lg transition">Manager Mode</button>
+                <button onclick="tempGameMode='spectator'; updateSetupUI();" id="setup-btn-spec" class="flex-1 py-3 rounded font-bold uppercase text-lg border-2 border-fifaPanel bg-fifaDark text-gray-300 shadow transition">Spectator Mode</button>
+            </div>
+
+            <div class="text-center text-xs font-bold uppercase mb-2 text-white bg-black/20 py-1 rounded border border-white/5" id="setup-instruction">Select a Nation to Manage:</div>
+            
+            <div class="flex-1 overflow-y-auto custom-scroll grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 p-1 max-h-64" id="setup-team-grid"></div>
+
+            <div class="mt-6 text-center">
+                <button onclick="confirmSetup()" id="btn-start-tournament" class="bg-[#012744] text-white text-2xl font-teko tracking-widest px-12 py-3 rounded-full uppercase shadow-2xl border-2 border-wcYellow hover:bg-[#011424] transition opacity-50 cursor-not-allowed" disabled>START TOURNAMENT</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LEADERBOARD MODAL -->
+    <div id="leaderboard-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="fifa-card max-w-4xl w-full p-6 rounded-xl space-y-4 max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                <span class="font-teko text-3xl font-bold uppercase text-white"><i class="fa-solid fa-star mr-2 text-wcYellow"></i>STAR PERFORMERS</span>
+                <button onclick="closeModal('leaderboard-modal')" class="text-gray-300 hover:text-white font-bold text-xl">&times;</button>
+            </div>
+            <div class="flex flex-col md:flex-row gap-6 flex-1 overflow-hidden">
+                <div class="flex-1 flex flex-col bg-black/20 p-2 rounded shadow-inner border border-white/5">
+                    <h3 class="font-teko text-2xl text-wcYellow font-bold bg-black/30 px-2 py-1 rounded text-center mb-2">GOLDEN BOOT (GOALS)</h3>
+                    <div class="flex-1 overflow-y-auto custom-scroll" id="lb-goals"></div>
+                </div>
+                <div class="flex-1 flex flex-col bg-black/20 p-2 rounded shadow-inner border border-white/5">
+                    <h3 class="font-teko text-2xl text-sky-300 font-bold bg-black/30 px-2 py-1 rounded text-center mb-2">PLAYMAKER (ASSISTS)</h3>
+                    <div class="flex-1 overflow-y-auto custom-scroll" id="lb-assists"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2D MATCH ENGINE MODAL -->
+    <div id="match-modal" class="fixed inset-0 bg-black/95 z-50 hidden flex flex-col justify-between p-4 md:p-6 font-sans backdrop-blur-md">
+        
+        <!-- 2018 Modern Scorebug -->
+        <div class="flex flex-col items-center w-full max-w-2xl mx-auto drop-shadow-2xl z-20 mt-2">
+            <div class="text-white text-xs font-bold tracking-widest bg-black/50 px-6 py-1 rounded-t-lg uppercase border-t border-x border-white/10" id="sim-stage-header">2018 FIFA WORLD CUP™</div>
+            <div class="flex w-full h-12 bg-[#012744] rounded-b-lg overflow-hidden border border-white/20 shadow-2xl">
+                <!-- Home Team -->
+                <div class="flex-1 bg-[#b81e24] flex items-center justify-between px-3 border-r border-[#012744] relative">
+                    <div class="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent pointer-events-none"></div>
+                    <img id="sim-home-flag" class="w-8 h-5 object-cover rounded-sm shadow border border-black/30 z-10" src="" alt="Home">
+                    <span id="sim-home-code" class="text-white font-bold text-2xl font-teko uppercase z-10">HOME</span>
+                </div>
+                <!-- Score -->
+                <div class="w-24 bg-[#012744] flex items-center justify-center space-x-2 px-2 text-white font-mono text-2xl font-bold relative">
+                    <span id="sim-home-score">0</span>
+                    <i class="fa-solid fa-diamond text-[8px] text-wcYellow mb-1"></i>
+                    <span id="sim-away-score">0</span>
+                    <div id="sim-match-period" class="absolute -bottom-1 w-full text-center text-[9px] text-red-500 font-bold uppercase hidden">AET</div>
+                </div>
+                <!-- Away Team -->
+                <div class="flex-1 bg-[#b81e24] flex items-center justify-between px-3 border-l border-[#012744] relative">
+                    <div class="absolute inset-0 bg-gradient-to-l from-black/20 to-transparent pointer-events-none"></div>
+                    <span id="sim-away-code" class="text-white font-bold text-2xl font-teko uppercase z-10">AWAY</span>
+                    <img id="sim-away-flag" class="w-8 h-5 object-cover rounded-sm shadow border border-black/30 z-10" src="" alt="Away">
+                </div>
+                <!-- Clock -->
+                <div class="w-20 bg-[#015386] flex items-center justify-center border-l border-white/20 relative">
+                    <span id="sim-clock-display" class="text-white font-mono text-xl font-bold">00:00</span>
+                    <span id="sim-added-time" class="absolute bottom-1 right-1 text-wcYellow text-[10px] font-bold opacity-0 transition-opacity">+0'</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-4xl mx-auto w-full flex-1 flex flex-col md:flex-row gap-4 my-4 overflow-hidden">
+            <div class="live-pitch rounded-lg flex-1 min-h-[250px] md:min-h-[auto] relative" id="pitch-container">
+                <div class="pitch-line-center"></div><div class="pitch-circle"></div>
+                <div class="pitch-box-left"></div><div class="pitch-box-right"></div>
+                <div id="pitch-overlay"></div>
+                <div id="match-ball"></div>
+                <div id="pitch-dots-container" class="absolute inset-0"></div>
+            </div>
+
+            <div class="w-full md:w-1/3 bg-[#011424] border border-white/20 rounded-lg p-3 flex flex-col shadow-xl">
+                <div class="text-wcYellow font-teko text-xl border-b border-white/10 pb-1 mb-2 flex justify-between items-center">
+                    <span><i class="fa-solid fa-microphone-lines mr-1"></i> MATCH FEED</span>
+                    <span id="match-engine-status" class="text-[10px] bg-red-700 text-white px-2 py-0.5 rounded uppercase shadow">KICKOFF</span>
+                </div>
+                <div id="sim-commentary-feed" class="flex-1 overflow-y-auto text-xs space-y-2 custom-scroll text-gray-300 pr-2"></div>
+                <div class="grid grid-cols-2 gap-1 text-[10px] text-center bg-black/50 p-2 rounded mt-2 font-mono shadow-inner border border-white/5">
+                    <div class="text-gray-400">SHOTS: <span id="stat-sh-h" class="text-white font-bold">0</span>-<span id="stat-sh-a" class="text-white font-bold">0</span></div>
+                    <div class="text-gray-400">FOULS: <span id="stat-f-h" class="text-red-400 font-bold">0</span>-<span id="stat-f-a" class="text-red-400 font-bold">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-4xl mx-auto w-full flex justify-center pb-2">
+            <button id="skip-sim-btn" onclick="endLiveMatchEarly()" class="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded text-xs font-bold tracking-wider uppercase border border-white/20 transition backdrop-blur-sm">
+                <i class="fa-solid fa-forward-step mr-1"></i> Skip to Result
+            </button>
+        </div>
+    </div>
+
+    <!-- ENGINE SCRIPTS -->
+    <script>
+        // Custom Notification Toast
+        function showNotification(msg, isError = false) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `px-4 py-3 rounded shadow-xl font-bold text-sm transform transition-all duration-300 translate-x-full pointer-events-auto border-l-4 border-black border-opacity-25 ${isError ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`;
+            toast.textContent = msg;
+            container.appendChild(toast);
+
+            setTimeout(() => toast.classList.remove('translate-x-full'), 10);
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        const TEAM_KITS = {
+            "Russia": { f: "#D52B1E", b: "#FFFFFF" },
+            "Saudi Arabia": { f: "#006C35", b: "#FFFFFF" },
+            "Egypt": { f: "#CE1126", b: "#FFFFFF" },
+            "Uruguay": { f: "#87CEEB", b: "#000000" },
+            "Portugal": { f: "#E42518", b: "#006600" },
+            "Spain": { f: "#C60B1E", b: "#FFC400" },
+            "Morocco": { f: "#C1272D", b: "#006233" },
+            "Iran": { f: "#FFFFFF", b: "#DA0000" },
+            "France": { f: "#002395", b: "#FFFFFF" },
+            "Australia": { f: "#FFCD00", b: "#008751" },
+            "Peru": { f: "#FFFFFF", b: "#D91023" },
+            "Denmark": { f: "#C60C30", b: "#FFFFFF" },
+            "Argentina": { f: "repeating-linear-gradient(90deg, #74ACDF 0, #74ACDF 5px, #FFFFFF 5px, #FFFFFF 10px)", b: "#000000" },
+            "Iceland": { f: "#02529C", b: "#DC1E35" },
+            "Croatia": { f: "repeating-linear-gradient(45deg, #FF0000 0, #FF0000 5px, #FFFFFF 5px, #FFFFFF 10px)", b: "#0000FF" },
+            "Nigeria": { f: "#008751", b: "#FFFFFF" },
+            "Brazil": { f: "#FDD301", b: "#009B3A" },
+            "Switzerland": { f: "#FF0000", b: "#FFFFFF" },
+            "Costa Rica": { f: "#CE1126", b: "#002B7F" },
+            "Serbia": { f: "#C6363C", b: "#FFFFFF" },
+            "Germany": { f: "#FFFFFF", b: "#000000" },
+            "Mexico": { f: "#006847", b: "#CE1126" },
+            "Sweden": { f: "#FECC00", b: "#006AA7" },
+            "South Korea": { f: "#C60C30", b: "#0047A0" },
+            "Belgium": { f: "#ED2939", b: "#FAE042" },
+            "Panama": { f: "#DA291C", b: "#002A8F" },
+            "Tunisia": { f: "#E70013", b: "#FFFFFF" },
+            "England": { f: "#FFFFFF", b: "#CF0820" },
+            "Poland": { f: "#DC143C", b: "#FFFFFF" },
+            "Senegal": { f: "#FFFFFF", b: "#00853F" },
+            "Colombia": { f: "#FCD116", b: "#003893" },
+            "Japan": { f: "#000555", b: "#FFFFFF" }
+        };
+
+        const ROSTERS = {}; // Cleared for purely generic squads
+
+        // Ordered exactly to create the correct schedule sequences
+        const NATIONS = [
+            // Group A
+            { name: "Russia", code: "RUS", flag: "ru", rating: 77, group: "A" },
+            { name: "Saudi Arabia", code: "KSA", flag: "sa", rating: 71, group: "A" },
+            { name: "Egypt", code: "EGY", flag: "eg", rating: 76, group: "A" },
+            { name: "Uruguay", code: "URU", flag: "uy", rating: 81, group: "A" },
+            // Group B
+            { name: "Portugal", code: "POR", flag: "pt", rating: 84, group: "B" },
+            { name: "Spain", code: "ESP", flag: "es", rating: 85, group: "B" },
+            { name: "Morocco", code: "MAR", flag: "ma", rating: 76, group: "B" },
+            { name: "Iran", code: "IRN", flag: "ir", rating: 73, group: "B" },
+            // Group C
+            { name: "France", code: "FRA", flag: "fr", rating: 84, group: "C" },
+            { name: "Australia", code: "AUS", flag: "au", rating: 70, group: "C" },
+            { name: "Peru", code: "PER", flag: "pe", rating: 75, group: "C" },
+            { name: "Denmark", code: "DEN", flag: "dk", rating: 76, group: "C" },
+            // Group D
+            { name: "Argentina", code: "ARG", flag: "ar", rating: 83, group: "D" },
+            { name: "Iceland", code: "ISL", flag: "is", rating: 76, group: "D" },
+            { name: "Croatia", code: "CRO", flag: "hr", rating: 80, group: "D" },
+            { name: "Nigeria", code: "NGA", flag: "ng", rating: 74, group: "D" },
+            // Group E
+            { name: "Brazil", code: "BRA", flag: "br", rating: 85, group: "E" },
+            { name: "Switzerland", code: "SUI", flag: "ch", rating: 77, group: "E" },
+            { name: "Costa Rica", code: "CRC", flag: "cr", rating: 71, group: "E" },
+            { name: "Serbia", code: "SRB", flag: "rs", rating: 77, group: "E" },
+            // Group F
+            { name: "Germany", code: "GER", flag: "de", rating: 85, group: "F" },
+            { name: "Mexico", code: "MEX", flag: "mx", rating: 79, group: "F" },
+            { name: "Sweden", code: "SWE", flag: "se", rating: 77, group: "F" },
+            { name: "South Korea", code: "KOR", flag: "kr", rating: 71, group: "F" },
+            // Group G
+            { name: "Belgium", code: "BEL", flag: "be", rating: 83, group: "G" },
+            { name: "Panama", code: "PAN", flag: "pa", rating: 68, group: "G" },
+            { name: "Tunisia", code: "TUN", flag: "tn", rating: 71, group: "G" },
+            { name: "England", code: "ENG", flag: "gb-eng", rating: 81, group: "G" },
+            // Group H
+            { name: "Poland", code: "POL", flag: "pl", rating: 79, group: "H" },
+            { name: "Senegal", code: "SEN", flag: "sn", rating: 76, group: "H" },
+            { name: "Colombia", code: "COL", flag: "co", rating: 79, group: "H" },
+            { name: "Japan", code: "JPN", flag: "jp", rating: 75, group: "H" }
+        ];
+
+        function getFlagUrl(c) { return `https://flagcdn.com/w80/${c.toLowerCase()}.png`; }
+        function getTeamObj(n) { return NATIONS.find(x => x.name === n) || { name: n, code: n.substring(0,3).toUpperCase(), flag: "un", rating: 75 }; }
+
+        function getTeamOvrAvg(teamName) {
+            const sq = gameState.squads[teamName];
+            if(!sq) return getTeamObj(teamName).rating;
+            let sum = 0;
+            for(let i=0; i<11; i++) sum += getPlayerOvr(sq[i]);
+            return sum / 11;
+        }
+
+        function generateFullSquad(teamName) {
+            const r = getTeamObj(teamName).rating;
+            let starters = [];
+            
+            // All Generic Players
+            starters = ["GK", "RB", "CB", "CB", "LB", "CM", "CM", "RW", "AM", "LW", "ST"].map((pos, i) => ({
+                name: `${teamName} Player ${i+1}`, pos, team: teamName,
+                pac: Math.max(50, r - 15 + Math.floor(Math.random()*20)), sho: Math.max(50, r - 15 + Math.floor(Math.random()*20)),
+                pas: Math.max(50, r - 15 + Math.floor(Math.random()*20)), dri: Math.max(50, r - 15 + Math.floor(Math.random()*20)),
+                def: Math.max(50, r - 15 + Math.floor(Math.random()*20)), phy: Math.max(50, r - 15 + Math.floor(Math.random()*20))
+            }));
+            
+            const reservesPos = ["GK", "CB", "LB", "RB", "CM", "CM", "RM", "LM", "CAM", "ST", "ST", "RW"];
+            for(let i=0; i<12; i++) {
+                starters.push({
+                    name: `${teamName} Player ${i+12}`, pos: reservesPos[i], team: teamName,
+                    pac: Math.max(40, r - 25 + Math.floor(Math.random()*20)), sho: Math.max(40, r - 25 + Math.floor(Math.random()*20)),
+                    pas: Math.max(40, r - 25 + Math.floor(Math.random()*20)), dri: Math.max(40, r - 25 + Math.floor(Math.random()*20)),
+                    def: Math.max(40, r - 25 + Math.floor(Math.random()*20)), phy: Math.max(40, r - 25 + Math.floor(Math.random()*20))
+                });
+            }
+            return starters;
+        }
+
+        // GLOBAL APP STATE
+        let gameState = { 
+            userTeam: null, mode: "manager", fixtures: [], groups: {}, playerStats: {}, squads: {}, currentDate: "14 JUN" 
+        };
+        let tempGameMode = "manager", tempSelectedTeam = null;
+
+        // Squad/Training UI State
+        let selectedPlayerIdx = null; let upgradePoints = 0; let trainingScore = 0; let drillActive = false; let drillInterval = null;
+
+        window.onload = () => { renderSetupGrid(); };
+
+        function renderSetupGrid() {
+            const grid = document.getElementById('setup-team-grid');
+            if (grid) {
+                grid.innerHTML = NATIONS.map(n => `
+                    <div onclick="tempSelectedTeam='${n.name}'; updateSetupUI();" id="setup-team-${n.name.replace(/\s/g,'')}" class="bg-black/40 p-1.5 rounded border border-white/10 hover:border-wcYellow cursor-pointer text-center flex flex-col items-center shadow-sm transition">
+                        <img src="${getFlagUrl(n.flag)}" class="w-8 h-5 mb-1 rounded shadow-sm border border-black/30">
+                        <span class="text-[9px] font-bold uppercase truncate w-full text-white">${n.name}</span>
+                    </div>`).join('');
+            }
+        }
+
+        function updateSetupUI() {
+            const isMgr = tempGameMode === 'manager';
+            const btnMgr = document.getElementById('setup-btn-mgr');
+            const btnSpec = document.getElementById('setup-btn-spec');
+            const inst = document.getElementById('setup-instruction');
+            const grid = document.getElementById('setup-team-grid');
+            
+            if (btnMgr) btnMgr.className = `flex-1 py-3 rounded font-bold uppercase text-lg border-2 shadow-lg transition ${isMgr ? 'border-wcYellow bg-red-600 text-white' : 'border-white/10 bg-black/40 text-gray-400'}`;
+            if (btnSpec) btnSpec.className = `flex-1 py-3 rounded font-bold uppercase text-lg border-2 shadow-lg transition ${!isMgr ? 'border-wcYellow bg-red-600 text-white' : 'border-white/10 bg-black/40 text-gray-400'}`;
+            if (inst) inst.style.display = isMgr ? 'block' : 'none';
+            if (grid) grid.style.display = isMgr ? 'grid' : 'none';
+            
+            document.querySelectorAll('[id^="setup-team-"]').forEach(e => e.classList.remove('border-wcYellow', 'bg-white/20'));
+            if (isMgr && tempSelectedTeam) {
+                const selEl = document.getElementById(`setup-team-${tempSelectedTeam.replace(/\s/g,'')}`);
+                if (selEl) selEl.classList.add('border-wcYellow', 'bg-white/20');
+            }
+            
+            const btn = document.getElementById('btn-start-tournament');
+            if (btn) {
+                btn.disabled = !(tempGameMode === 'spectator' || (isMgr && tempSelectedTeam));
+                btn.className = btn.disabled ? "bg-[#012744] text-white text-2xl font-teko tracking-widest px-12 py-3 rounded-full uppercase shadow border-2 border-white/20 opacity-50 cursor-not-allowed transition" : "bg-red-600 text-white text-2xl font-teko tracking-widest px-12 py-3 rounded-full uppercase shadow-2xl border-2 border-wcYellow hover:bg-red-700 hover:scale-105 transition cursor-pointer";
+            }
+        }
+
+        function confirmSetup() {
+            gameState.userTeam = tempGameMode === 'manager' ? tempSelectedTeam : "Russia";
+            gameState.mode = tempGameMode;
+            const setupModal = document.getElementById('setup-modal');
+            if (setupModal) setupModal.classList.add('hidden');
+            const badge = document.getElementById('game-mode-badge');
+            if (badge) badge.textContent = gameState.mode === 'manager' ? 'MANAGER MODE' : 'SPECTATOR MODE';
+            initTournament();
+            switchTab('central');
+        }
+
+        function initTournament() {
+            gameState.groups = {}; gameState.playerStats = {}; gameState.currentDate = "14 JUN";
+            gameState.squads = {};
+
+            NATIONS.forEach(n => { 
+                if (!gameState.groups[n.group]) gameState.groups[n.group] = []; 
+                gameState.groups[n.group].push({ ...n, p:0, w:0, d:0, l:0, gf:0, ga:0, pts:0 }); 
+                gameState.squads[n.name] = generateFullSquad(n.name);
+            });
+            
+            gameState.fixtures = []; let id = 1;
+            // 2018 Accurate Cycle: 1v2, 3v4, 1v3, 4v2, 2v3, 4v1 mapping to arrays
+            const cycles = [[0,1], [2,3], [0,2], [3,1], [1,2], [3,0]];
+            ['A','B','C','D','E','F','G','H'].forEach(g => {
+                cycles.forEach((c, i) => {
+                    const md = Math.floor(i/2) + 1;
+                    const dayNum = 14 + Math.floor(id / 3.2); // Tournament started June 14
+                    gameState.fixtures.push({ id: id++, stageFull: `Group Stage Matchday ${md}`, groupCode: g, home: gameState.groups[g][c[0]].name, away: gameState.groups[g][c[1]].name, played: false, hGoals: null, aGoals: null, date: `${dayNum>30?dayNum-30:dayNum} ${dayNum>30?'JUL':'JUN'}` });
+                });
+            });
+            for(let i=0; i<16; i++) gameState.fixtures.push({ id: id++, stageFull: i<8?"Round of 16":i<12?"Quarter Finals":i<14?"Semi Finals":i===14?"Third Place":"Final", home: null, away: null, played: false, date: "" });
+            
+            renderDashboard(); 
+            renderSquadView();
+        }
+
+        function switchTab(t) {
+            document.querySelectorAll('nav .tab-btn').forEach(b => b.classList.remove('active'));
+            const tabBtn = document.getElementById(`tab-${t}`);
+            if (tabBtn) tabBtn.classList.add('active');
+            ['central', 'squad', 'fixtures', 'tables', 'music'].forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if (el) el.classList.add('hidden');
+            });
+            const targetView = document.getElementById(`view-${t}`);
+            if (targetView) targetView.classList.remove('hidden');
+
+            if(t==='fixtures') renderFixturesList();
+            if(t==='tables') renderTablesView();
+            if(t==='squad') {
+                selectedPlayerIdx = null; 
+                renderSquadView();
+            }
+        }
+
+        function toggleSquadSubTab(subt) {
+            document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`subtab-${subt}`).classList.add('active');
+            document.getElementById('pane-tactics').classList.add('hidden');
+            document.getElementById('pane-training').classList.add('hidden');
+            document.getElementById(`pane-${subt}`).classList.remove('hidden');
+            if(subt==='training') renderTrainingPlayerStats();
+        }
+        
+        function closeModal(id) { const m = document.getElementById(id); if (m) m.classList.add('hidden'); }
+        function openSelectTeamModal() { tempGameMode = gameState.mode; tempSelectedTeam = gameState.userTeam; updateSetupUI(); const m = document.getElementById('setup-modal'); if (m) m.classList.remove('hidden'); }
+
+        // ================= Dashboard Logic =================
+        function renderDashboard() {
+            const ut = getTeamObj(gameState.userTeam);
+            const userTeamNameEl = document.getElementById('user-team-name');
+            const userTeamFlagEl = document.getElementById('user-team-flag');
+            if (userTeamNameEl) userTeamNameEl.textContent = ut.name;
+            if (userTeamFlagEl) userTeamFlagEl.src = getFlagUrl(ut.flag);
+            
+            let nextM = gameState.fixtures.find(f => !f.played && f.home && f.away && (gameState.mode === 'spectator' || f.home === gameState.userTeam || f.away === gameState.userTeam));
+            if(!nextM) nextM = gameState.fixtures.find(f => !f.played && f.home && f.away);
+
+            const statDateEl = document.getElementById('stat-date');
+            const nextHomeFlagEl = document.getElementById('next-home-flag');
+            const nextHomeNameEl = document.getElementById('next-home-name');
+            const nextAwayFlagEl = document.getElementById('next-away-flag');
+            const nextAwayNameEl = document.getElementById('next-away-name');
+            const nextFixtureStageEl = document.getElementById('next-fixture-stage');
+            const nextFixtureDateEl = document.getElementById('next-fixture-date');
+            const playButtonsContainerEl = document.getElementById('play-buttons-container');
+
+            if(nextM) {
+                gameState.currentDate = nextM.date;
+                if (statDateEl) statDateEl.textContent = nextM.date;
+                if (nextHomeFlagEl) nextHomeFlagEl.src = getFlagUrl(getTeamObj(nextM.home).flag);
+                if (nextHomeNameEl) nextHomeNameEl.textContent = nextM.home;
+                if (nextAwayFlagEl) nextAwayFlagEl.src = getFlagUrl(getTeamObj(nextM.away).flag);
+                if (nextAwayNameEl) nextAwayNameEl.textContent = nextM.away;
+                if (nextFixtureStageEl) nextFixtureStageEl.textContent = nextM.stageFull;
+                if (nextFixtureDateEl) nextFixtureDateEl.textContent = nextM.date;
+                if (playButtonsContainerEl) playButtonsContainerEl.style.display = 'grid';
+            } else {
+                if (nextHomeNameEl) nextHomeNameEl.textContent = "---"; 
+                if (nextAwayNameEl) nextAwayNameEl.textContent = "---";
+                if (nextFixtureStageEl) nextFixtureStageEl.textContent = "TOURNAMENT COMPLETE";
+                if (playButtonsContainerEl) playButtonsContainerEl.style.display = 'none';
+            }
+            renderCentralTables(); renderStarPerformersWidget(); updateGlobalStats();
+        }
+
+        function renderCentralTables() {
+            const g = getTeamObj(gameState.userTeam).group || "A";
+            const tms = [...gameState.groups[g]].sort((a,b) => b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf);
+            const previewEl = document.getElementById('central-tables-preview');
+            if (previewEl) {
+                previewEl.innerHTML = `<div class="font-bold text-xs uppercase mb-1 text-wcYellow">Group ${g}</div>` + 
+                    tms.map((t,i) => `<div class="flex justify-between items-center ${t.name===gameState.userTeam?'font-bold text-wcYellow':'text-gray-200'}"><span>${i+1}. ${t.name}</span><span class="font-mono">${t.pts} PTS</span></div>`).join('');
+            }
+        }
+
+        function renderStarPerformersWidget() {
+            const arr = Object.values(gameState.playerStats).sort((a,b) => b.goals-a.goals || b.assists-a.assists);
+            const c = document.getElementById('star-performer-card');
+            if (!c) return;
+            if(!arr.length || !arr[0].goals) { c.innerHTML = `<div class="text-center text-gray-400 py-4"><i class="fa-solid fa-clock mb-2 text-2xl"></i><br>Awaiting Matches...</div>`; return; }
+            c.innerHTML = `<div class="flex items-center space-x-3 bg-black/30 p-2 rounded shadow border border-white/10">
+                <div class="w-12 h-12 bg-wcYellow text-fifaDark rounded-full flex items-center justify-center font-bold text-xl border-2 border-white"><i class="fa-solid fa-futbol"></i></div>
+                <div><div class="font-bold text-lg text-wcYellow uppercase">${arr[0].name}</div><div class="text-xs text-gray-300 uppercase">${arr[0].team} • ${arr[0].pos}</div><div class="text-[11px] bg-black/50 px-1.5 py-0.5 rounded font-mono text-wcLightGreen inline-block mt-1">${arr[0].goals} GOALS • ${arr[0].assists} ASSISTS</div></div></div>`;
+        }
+
+        function updateGlobalStats() {
+            const p = gameState.fixtures.filter(f => f.played).length;
+            const statMatchesEl = document.getElementById('stat-matches');
+            if (statMatchesEl) statMatchesEl.textContent = `${p}/64`;
+        }
+
+        // ================= SQUAD & TACTICS LOGIC =================
+        function getPlayerOvr(p) { return Math.round((p.pac+p.sho+p.pas+p.dri+p.def+p.phy)/6); }
+
+        function renderSquadView() {
+            const squad = gameState.squads[gameState.userTeam];
+            if(!squad) return;
+
+            const pC = document.getElementById('squad-pitch-container');
+            const pitchCoords = [
+                {t:'85%', l:'50%'}, // GK
+                {t:'70%', l:'20%'}, {t:'75%', l:'40%'}, {t:'75%', l:'60%'}, {t:'70%', l:'80%'}, // DEF
+                {t:'50%', l:'30%'}, {t:'55%', l:'50%'}, {t:'50%', l:'70%'}, // MID
+                {t:'25%', l:'25%'}, {t:'20%', l:'50%'}, {t:'25%', l:'75%'}  // ATT
+            ];
+
+            let pHTML = `<div class="s-pitch-line-center"></div><div class="s-pitch-circle"></div><div class="s-pitch-box-top"></div><div class="s-pitch-box-bottom"></div>`;
+            for(let i=0; i<11; i++) {
+                pHTML += `<div onclick="selectPlayerForSwap(${i})" class="squad-player-token ${selectedPlayerIdx === i ? 'selected' : ''}" style="top:${pitchCoords[i].t}; left:${pitchCoords[i].l};">
+                    <div class="spt-dot">${getPlayerOvr(squad[i])}</div>
+                    <div class="spt-name">${squad[i].name.split(' ').pop()}</div>
+                </div>`;
+            }
+            if (pC) pC.innerHTML = pHTML;
+
+            const rC = document.getElementById('reserves-list-container');
+            let rHTML = '';
+            for(let i=11; i<squad.length; i++) {
+                rHTML += `
+                <div onclick="selectPlayerForSwap(${i})" class="flex justify-between items-center p-2 rounded cursor-pointer transition ${selectedPlayerIdx === i ? 'bg-wcYellow text-fifaDark font-bold' : 'bg-[#012744] hover:bg-[#015386] text-gray-300'} border border-white/5">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-[10px] w-6 text-center ${selectedPlayerIdx === i ? 'text-fifaDark' : 'text-gray-400'} font-bold">${squad[i].pos}</span>
+                        <span class="text-sm truncate w-32">${squad[i].name}</span>
+                    </div>
+                    <span class="text-xs font-mono font-bold ${selectedPlayerIdx === i ? 'text-fifaDark' : 'text-wcYellow'}">${getPlayerOvr(squad[i])} OVR</span>
+                </div>`;
+            }
+            if (rC) rC.innerHTML = rHTML;
+
+            const cardEl = document.getElementById('selected-player-card');
+            if (selectedPlayerIdx !== null && squad[selectedPlayerIdx]) {
+                const p = squad[selectedPlayerIdx];
+                cardEl.innerHTML = `
+                    <div class="flex-1 w-full">
+                        <div class="flex justify-between items-end border-b border-white/10 pb-2 mb-3">
+                            <div><div class="text-lg font-bold text-white leading-none">${p.name}</div><div class="text-xs text-gray-400 font-mono mt-1">${p.pos} • ${p.team}</div></div>
+                            <div class="text-2xl font-mono font-bold text-wcYellow leading-none">OVR ${getPlayerOvr(p)}</div>
+                        </div>
+                        <div class="grid grid-cols-6 gap-1 text-center font-mono text-xs font-bold bg-black/40 p-2 rounded border border-white/5">
+                            <div><div class="text-wcLightGreen mb-1">${p.pac}</div><div class="text-gray-400 text-[9px]">PAC</div></div>
+                            <div><div class="text-wcLightGreen mb-1">${p.sho}</div><div class="text-gray-400 text-[9px]">SHO</div></div>
+                            <div><div class="text-wcLightGreen mb-1">${p.pas}</div><div class="text-gray-400 text-[9px]">PAS</div></div>
+                            <div><div class="text-wcLightGreen mb-1">${p.dri}</div><div class="text-gray-400 text-[9px]">DRI</div></div>
+                            <div><div class="text-wcLightGreen mb-1">${p.def}</div><div class="text-gray-400 text-[9px]">DEF</div></div>
+                            <div><div class="text-wcLightGreen mb-1">${p.phy}</div><div class="text-gray-400 text-[9px]">PHY</div></div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                cardEl.innerHTML = `<div class="text-center text-gray-500 italic py-4 w-full border-2 border-dashed border-white/20 rounded">Click a player to view stats or select to swap.</div>`;
+            }
+
+            populateTrainingDropdown();
+        }
+
+        function selectPlayerForSwap(idx) {
+            if (selectedPlayerIdx === null) {
+                selectedPlayerIdx = idx;
+            } else if (selectedPlayerIdx === idx) {
+                selectedPlayerIdx = null; 
+            } else {
+                const squad = gameState.squads[gameState.userTeam];
+                const temp = squad[selectedPlayerIdx];
+                squad[selectedPlayerIdx] = squad[idx];
+                squad[idx] = temp;
+                selectedPlayerIdx = null; 
+            }
+            renderSquadView();
+        }
+
+        // ================= TRAINING LOGIC =================
+        function populateTrainingDropdown() {
+            const sel = document.getElementById('training-player-select');
+            if(!sel) return;
+            const squad = gameState.squads[gameState.userTeam];
+            if(!squad) return;
+            sel.innerHTML = squad.map((p,i) => `<option value="${i}">${p.name} (${getPlayerOvr(p)} OVR)</option>`).join('');
+        }
+
+        function renderTrainingPlayerStats() {
+            document.getElementById('upgrade-points-display').textContent = upgradePoints;
+            const idx = document.getElementById('training-player-select').value;
+            const squad = gameState.squads[gameState.userTeam];
+            if(!squad || !squad[idx]) return;
+            const p = squad[idx];
+            document.getElementById('training-player-stats').innerHTML = `
+                <div class="text-sm font-bold text-white mb-2">${p.name} <span class="float-right text-wcYellow">${getPlayerOvr(p)} OVR</span></div>
+                <div class="grid grid-cols-3 gap-2 text-xs font-mono text-center">
+                    <div class="bg-black/50 p-1 rounded">PAC: ${p.pac}</div><div class="bg-black/50 p-1 rounded">SHO: ${p.sho}</div><div class="bg-black/50 p-1 rounded">PAS: ${p.pas}</div>
+                    <div class="bg-black/50 p-1 rounded">DRI: ${p.dri}</div><div class="bg-black/50 p-1 rounded">DEF: ${p.def}</div><div class="bg-black/50 p-1 rounded">PHY: ${p.phy}</div>
+                </div>
+            `;
+        }
+
+        function startTrainingDrill() {
+            if(drillActive) return;
+            drillActive = true;
+            trainingScore = 0;
+            document.getElementById('drill-score').textContent = trainingScore;
+            document.getElementById('btn-start-drill').disabled = true;
+            document.getElementById('btn-start-drill').classList.add('opacity-50');
+            
+            const area = document.getElementById('drill-area');
+            const target = document.getElementById('drill-target');
+            target.style.display = 'block';
+
+            let drillTime = 10; 
+            
+            function nextDot() {
+                if(drillTime <= 0) {
+                    endDrill(); return;
+                }
+                drillTime--;
+                target.style.left = `${Math.floor(Math.random() * 85) + 5}%`;
+                target.style.top = `${Math.floor(Math.random() * 85) + 5}%`;
+                
+                clearInterval(drillInterval);
+                drillInterval = setInterval(nextDot, 1000); 
+            }
+            
+            nextDot();
+        }
+
+        function hitDrillTarget() {
+            if(!drillActive) return;
+            trainingScore++;
+            document.getElementById('drill-score').textContent = trainingScore;
+            if(trainingScore % 3 === 0) { 
+                upgradePoints++;
+                renderTrainingPlayerStats();
+            }
+            clearInterval(drillInterval);
+            document.getElementById('drill-target').style.display = 'none'; 
+            setTimeout(() => {
+                if(drillActive) document.getElementById('drill-target').style.display = 'block';
+                const target = document.getElementById('drill-target');
+                target.style.left = `${Math.floor(Math.random() * 85) + 5}%`;
+                target.style.top = `${Math.floor(Math.random() * 85) + 5}%`;
+                drillInterval = setInterval(() => {
+                    if(drillActive) {
+                        target.style.left = `${Math.floor(Math.random() * 85) + 5}%`;
+                        target.style.top = `${Math.floor(Math.random() * 85) + 5}%`;
+                    }
+                }, 1000); 
+            }, 50);
+        }
+
+        function endDrill() {
+            drillActive = false;
+            clearInterval(drillInterval);
+            document.getElementById('drill-target').style.display = 'none';
+            document.getElementById('btn-start-drill').disabled = false;
+            document.getElementById('btn-start-drill').classList.remove('opacity-50');
+            document.getElementById('btn-start-drill').textContent = 'Restart';
+        }
+
+        function applyUpgrade(statKey) {
+            if(upgradePoints <= 0) { 
+                showNotification('No upgrade points available. Play the Reaction Drill!', true); 
+                return; 
+            }
+            const idx = document.getElementById('training-player-select').value;
+            const squad = gameState.squads[gameState.userTeam];
+            if(squad[idx][statKey] < 99) {
+                squad[idx][statKey]++;
+                upgradePoints--;
+                renderTrainingPlayerStats();
+                showNotification(`Successfully upgraded ${squad[idx].name}'s ${statKey.toUpperCase()}!`, false);
+            } else {
+                showNotification('Stat maxed out at 99!', true);
+            }
+        }
+
+        // ================= FIXTURES =================
+        function renderFixturesList() {
+            const filterEl = document.getElementById('fixture-filter');
+            const fv = filterEl ? filterEl.value : 'all';
+            let list = gameState.fixtures.filter(f => f.home);
+            if(fv === 'user') list = list.filter(f => f.home===gameState.userTeam || f.away===gameState.userTeam);
+            
+            const g = list.reduce((a, o) => { (a[o.stageFull]=a[o.stageFull]||[]).push(o); return a; }, {});
+            const container = document.getElementById('fixtures-list-container');
+            if (container) {
+                container.innerHTML = Object.keys(g).map(s => 
+                    `<div class="font-teko text-xl font-bold text-white bg-black/30 px-2 py-1 rounded mt-4 mb-2 uppercase border border-white/5">${s}</div>` + 
+                    g[s].map(f => {
+                        let scoreTxt = f.played ? `${f.hGoals} - ${f.aGoals}` : 'VS';
+                        if(f.hPens) scoreTxt += ` <span class="text-[9px] text-red-400 block leading-tight">(${f.hPens}-${f.aPens} P)</span>`;
+                        return `<div class="flex items-center justify-between bg-black/20 p-2 rounded shadow-sm border border-white/5 mb-1 text-sm"><div class="text-[10px] font-bold text-gray-400 w-16 text-center leading-tight">${f.date}</div><div class="flex items-center space-x-2 w-1/3 justify-end"><span class="font-bold uppercase truncate ${f.home===gameState.userTeam?'text-wcYellow':'text-white'}">${f.home}</span><img src="${getFlagUrl(getTeamObj(f.home).flag)}" class="w-6 h-4 rounded shadow-sm"></div><div class="px-3 py-0.5 bg-[#012744] text-white font-mono font-bold rounded text-center shadow-inner min-w-[50px] leading-tight flex flex-col justify-center border border-white/10">${scoreTxt}</div><div class="flex items-center space-x-2 w-1/3 justify-start"><img src="${getFlagUrl(getTeamObj(f.away).flag)}" class="w-6 h-4 rounded shadow-sm"><span class="font-bold uppercase truncate ${f.away===gameState.userTeam?'text-wcYellow':'text-white'}">${f.away}</span></div></div>`
+                    }).join('')
+                ).join('');
+            }
+        }
+
+        // ================= BRACKET =================
+        function renderTablesView() {
+            const groupGrid = document.getElementById('group-tables-grid');
+            if (groupGrid) {
+                groupGrid.innerHTML = Object.keys(gameState.groups).map(g => {
+                    const tms = [...gameState.groups[g]].sort((a,b) => b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf);
+                    return `<div class="bg-black/20 p-2 rounded shadow-sm border border-white/10"><div class="font-teko text-xl font-bold text-wcYellow border-b border-white/10 mb-1">GROUP ${g}</div><table class="w-full text-[11px] font-sans text-gray-200"><thead><tr class="border-b border-white/10 text-left"><th>TEAM</th><th>P</th><th>GD</th><th>PTS</th></tr></thead><tbody>${tms.map((t, i) => `<tr class="${i<2?'font-bold text-white':''}"><td class="py-1 flex items-center space-x-1"><img src="${getFlagUrl(t.flag)}" class="w-4 h-3 rounded border border-black/30"><span>${t.code}</span></td><td class="font-mono">${t.p}</td><td class="font-mono">${t.gf-t.ga}</td><td class="font-mono font-bold">${t.pts}</td></tr>`).join('')}</tbody></table></div>`;
+                }).join('');
+            }
+
+            const fx = gameState.fixtures;
+            const drawPillMatch = (m, isCenter=false, side) => {
+                if(!m || !m.home) return `<div class="b-match-pair ${isCenter?'center-card':''} opacity-60"><div class="text-xs text-center text-gray-400 font-bold w-full py-1">TBD</div></div>`;
+                
+                const h = getTeamObj(m.home), a = getTeamObj(m.away);
+                const hSc = m.played ? m.hGoals : '-';
+                const aSc = m.played ? m.aGoals : '-';
+                const hPen = m.hPens ? `<span class="b-pen-score">(${m.hPens})</span>` : '';
+                const aPen = m.aPens ? `<span class="b-pen-score">(${m.aPens})</span>` : '';
+
+                if (side === 'left' || isCenter) {
+                    return `
+                        <div class="b-match-pair ${isCenter?'center-card':''}">
+                            <div class="b-team-row"><div class="flex items-center space-x-1.5"><span class="b-seed">1</span><img src="${getFlagUrl(h.flag)}"></div><span class="b-score">${hSc}${hPen}</span></div>
+                            <div class="b-team-row"><div class="flex items-center space-x-1.5"><span class="b-seed">1</span><img src="${getFlagUrl(a.flag)}"></div><span class="b-score">${aSc}${aPen}</span></div>
+                        </div>`;
+                } else {
+                    return `
+                        <div class="b-match-pair">
+                            <div class="b-team-row"><span class="b-score pl-1">${hPen}${hSc}</span><div class="flex items-center space-x-1.5"><img src="${getFlagUrl(h.flag)}"><span class="b-seed">1</span></div></div>
+                            <div class="b-team-row"><span class="b-score pl-1">${aPen}${aSc}</span><div class="flex items-center space-x-1.5"><img src="${getFlagUrl(a.flag)}"><span class="b-seed">1</span></div></div>
+                        </div>`;
+                }
+            };
+
+            // Display Left side matches: M49(48), M50(49), M53(52), M54(53)
+            const r16l = document.getElementById('b-r16-left'); if (r16l) r16l.innerHTML = [48,49,52,53].map(i => drawPillMatch(fx[i], false, 'left')).join('');
+            const qfl = document.getElementById('b-qf-left'); if (qfl) qfl.innerHTML = [56,57].map(i => drawPillMatch(fx[i], false, 'left')).join(''); // M57(56), M58(57)
+            const sfl = document.getElementById('b-sf-left'); if (sfl) sfl.innerHTML = [60].map(i => drawPillMatch(fx[i], false, 'left')).join(''); // M61(60)
+
+            // Display Right side matches: M51(50), M52(51), M55(54), M56(55)
+            const r16r = document.getElementById('b-r16-right'); if (r16r) r16r.innerHTML = [50,51,54,55].map(i => drawPillMatch(fx[i], false, 'right')).join('');
+            const qfr = document.getElementById('b-qf-right'); if (qfr) qfr.innerHTML = [58,59].map(i => drawPillMatch(fx[i], false, 'right')).join(''); // M59(58), M60(59)
+            const sfr = document.getElementById('b-sf-right'); if (sfr) sfr.innerHTML = [61].map(i => drawPillMatch(fx[i], false, 'right')).join(''); // M62(61)
+
+            const centerEl = document.getElementById('b-center');
+            if (centerEl) {
+                centerEl.innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] font-bold uppercase text-wcYellow bg-[#012744] px-3 py-0.5 rounded-full mb-2 shadow border border-white/20">FINAL</span>
+                        ${drawPillMatch(fx[63], true, 'center')}
+                    </div>
+                    <div class="flex flex-col items-center mt-6">
+                        <span class="text-[10px] font-bold uppercase text-gray-300 bg-black/30 px-3 py-0.5 rounded-full mb-2 border border-white/10">3RD PLACE</span>
+                        ${drawPillMatch(fx[62], true, 'center')}
+                    </div>
+                `;
+            }
+
+            drawBracketLines();
+        }
+
+        function drawBracketLines() {
+            const svg = document.getElementById('bracket-lines');
+            if (!svg) return;
+            svg.innerHTML = `
+                <g stroke="rgba(255,255,255,0.2)" stroke-width="2" fill="none">
+                    <path d="M 160,60 L 180,60 L 180,120 L 200,120"/>
+                    <path d="M 160,200 L 180,200 L 180,120"/>
+                    <path d="M 160,350 L 180,350 L 180,420 L 200,420"/>
+                    <path d="M 160,500 L 180,500 L 180,420"/>
+                    <path d="M 860,60 L 840,60 L 840,120 L 820,120"/>
+                    <path d="M 860,200 L 840,200 L 840,120"/>
+                    <path d="M 860,350 L 840,350 L 840,420 L 820,420"/>
+                    <path d="M 860,500 L 840,500 L 840,420"/>
+                </g>
+            `;
+        }
+
+        function openLeaderboardModal() {
+            const arr = Object.values(gameState.playerStats);
+            const rR = (p, v) => `<div class="flex justify-between items-center bg-black/40 p-2 rounded shadow-sm border border-white/5 mb-1 text-sm"><div class="flex items-center space-x-2"><img src="${getFlagUrl(getTeamObj(p.team).flag)}" class="w-4 h-3 rounded border border-black/50"><span class="font-bold text-white">${p.name}</span></div><span class="font-mono font-bold text-wcYellow">${p[v]}</span></div>`;
+            const lbGoals = document.getElementById('lb-goals');
+            const lbAssists = document.getElementById('lb-assists');
+            if (lbGoals) lbGoals.innerHTML = arr.filter(x=>x.goals).sort((a,b)=>b.goals-a.goals).slice(0,10).map(x=>rR(x,'goals')).join('') || '<div class="text-center p-4 text-gray-500 font-bold">No Goals</div>';
+            if (lbAssists) lbAssists.innerHTML = arr.filter(x=>x.assists).sort((a,b)=>b.assists-a.assists).slice(0,10).map(x=>rR(x,'assists')).join('') || '<div class="text-center p-4 text-gray-500 font-bold">No Assists</div>';
+            const modal = document.getElementById('leaderboard-modal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        // ================= BACKGROUND SIMULATION =================
+        function quickSimulateAction() {
+            let nextM = gameState.fixtures.find(f => !f.played && f.home && f.away && (gameState.mode === 'spectator' || f.home === gameState.userTeam || f.away === gameState.userTeam));
+            if(!nextM) nextM = gameState.fixtures.find(f => !f.played && f.home && f.away);
+            if(!nextM) return;
+
+            const stage = nextM.stageFull;
+            calcMatchOVR(nextM);
+            showSimFlashResult(nextM);
+
+            if(gameState.mode === 'manager') {
+                const bgMatches = gameState.fixtures.filter(f => !f.played && f.home && f.stageFull === stage && f.id !== nextM.id);
+                bgMatches.forEach(m => calcMatchOVR(m));
+            }
+            advanceTournamentPhases();
+        }
+
+        function showSimFlashResult(m) {
+            const h = getTeamObj(m.home), a = getTeamObj(m.away);
+            
+            const stageEl = document.getElementById('flash-stage-name');
+            if (stageEl) {
+                stageEl.textContent = m.stageFull.includes('Group') ? `2018 FIFA WORLD CUP™ - GROUP ${m.groupCode}` : `2018 FIFA WORLD CUP™ - ${m.stageFull.toUpperCase()}`;
+            }
+            
+            const hFlag = document.getElementById('flash-home-flag'); if(hFlag) hFlag.src = getFlagUrl(h.flag);
+            const aFlag = document.getElementById('flash-away-flag'); if(aFlag) aFlag.src = getFlagUrl(a.flag);
+            const hName = document.getElementById('flash-home-name'); if(hName) hName.textContent = h.code;
+            const aName = document.getElementById('flash-away-name'); if(aName) aName.textContent = a.code;
+            const hScore = document.getElementById('flash-home-score'); if(hScore) hScore.textContent = m.hGoals;
+            const aScore = document.getElementById('flash-away-score'); if(aScore) aScore.textContent = m.aGoals;
+            
+            const xtraEl = document.getElementById('flash-extra-text');
+            if(xtraEl) {
+                if(m.hPens) { xtraEl.textContent = `(${m.hPens}-${m.aPens} PENS)`; xtraEl.classList.remove('hidden'); }
+                else if(m.isAET) { xtraEl.textContent = "AET"; xtraEl.classList.remove('hidden'); }
+                else { xtraEl.classList.add('hidden'); }
+            }
+
+            const modal = document.getElementById('sim-flash-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                setTimeout(() => { modal.classList.add('hidden'); renderDashboard(); }, 1200); 
+            } else renderDashboard();
+        }
+
+        function calcMatchOVR(m) {
+            const isKO = !m.stageFull.includes("Group");
+            
+            const hOvr = getTeamOvrAvg(m.home), aOvr = getTeamOvrAvg(m.away);
+            const hFav = hOvr >= aOvr;
+            
+            let draw = Math.random() < (isKO ? 0.25 : 0.20);
+            let hWins = false, aWins = false;
+
+            if(!draw) {
+                const r = Math.random();
+                if(hFav) { hWins = r < 0.85; aWins = !hWins; } 
+                else { aWins = r < 0.85; hWins = !aWins; }
+            }
+
+            let hG = 0, aG = 0;
+            if(draw) { hG = aG = Math.floor(Math.random()*3); }
+            else if(hWins) { hG = Math.floor(Math.random()*3)+1; aG = Math.floor(Math.random()*hG); }
+            else { aG = Math.floor(Math.random()*3)+1; hG = Math.floor(Math.random()*aG); }
+
+            if(isKO && hG === aG) {
+                m.isAET = true;
+                if(Math.random() < 0.3) {
+                    if(Math.random() < 0.5) hG++; else aG++;
+                } else {
+                    m.hPens = Math.floor(Math.random()*2) + 3;
+                    m.aPens = Math.floor(Math.random()*2) + 3;
+                    if(m.hPens === m.aPens) m.hPens++;
+                }
+            }
+
+            finalizeMatch(m, hG, aG);
+            
+            const hSq = gameState.squads[m.home], aSq = gameState.squads[m.away];
+            if(hSq && aSq) {
+                for(let i=0; i<hG; i++) {
+                    const scorer = hSq[10 - Math.floor(Math.random()*4)].name;
+                    let assister = hSq[Math.floor(Math.random()*11)].name;
+                    if(assister === scorer) assister = hSq[5].name;
+                    recordStat(scorer, m.home, 'goals'); recordStat(assister, m.home, 'assists');
+                }
+                for(let i=0; i<aG; i++) {
+                    const scorer = aSq[10 - Math.floor(Math.random()*4)].name;
+                    let assister = aSq[Math.floor(Math.random()*11)].name;
+                    if(assister === scorer) assister = aSq[5].name;
+                    recordStat(scorer, m.away, 'goals'); recordStat(assister, m.away, 'assists');
+                }
+            }
+        }
+
+        function finalizeMatch(m, h, a) {
+            m.played = true; m.hGoals = h; m.aGoals = a;
+            if(m.groupCode) {
+                const gt = gameState.groups[m.groupCode];
+                if (gt) {
+                    const th = gt.find(t=>t.name===m.home), ta = gt.find(t=>t.name===m.away);
+                    if (th && ta) {
+                        th.p++; ta.p++; th.gf+=h; th.ga+=a; ta.gf+=a; ta.ga+=h;
+                        if(h>a) { th.w++; th.pts+=3; ta.l++; } else if(a>h) { ta.w++; ta.pts+=3; th.l++; } else { th.d++; ta.d++; th.pts++; ta.pts++; }
+                    }
+                }
+            }
+        }
+
+        function advanceTournamentPhases() {
+            const p = gameState.fixtures.filter(f=>f.played).length;
+            
+            if(p >= 48 && gameState.fixtures[48] && !gameState.fixtures[48].home) {
+                const gR = (g, rank) => [...gameState.groups[g]].sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf)[rank-1].name;
+                
+                // M49 to M56 Assignment
+                gameState.fixtures[48].home = gR('A',1); gameState.fixtures[48].away = gR('B',2); // M49
+                gameState.fixtures[49].home = gR('C',1); gameState.fixtures[49].away = gR('D',2); // M50
+                gameState.fixtures[50].home = gR('B',1); gameState.fixtures[50].away = gR('A',2); // M51
+                gameState.fixtures[51].home = gR('D',1); gameState.fixtures[51].away = gR('C',2); // M52
+                gameState.fixtures[52].home = gR('E',1); gameState.fixtures[52].away = gR('F',2); // M53
+                gameState.fixtures[53].home = gR('G',1); gameState.fixtures[53].away = gR('H',2); // M54
+                gameState.fixtures[54].home = gR('F',1); gameState.fixtures[54].away = gR('E',2); // M55
+                gameState.fixtures[55].home = gR('H',1); gameState.fixtures[55].away = gR('G',2); // M56
+            }
+
+            const getWinner = (m) => {
+                if(m.hGoals > m.aGoals) return m.home;
+                if(m.aGoals > m.hGoals) return m.away;
+                return m.hPens > m.aPens ? m.home : m.away;
+            };
+
+            const ck = (i1, i2, nxt) => { 
+                const f1 = gameState.fixtures[i1], f2 = gameState.fixtures[i2]; 
+                if(f1 && f2 && f1.played && f2.played && gameState.fixtures[nxt] && !gameState.fixtures[nxt].home){ 
+                    gameState.fixtures[nxt].home = getWinner(f1); 
+                    gameState.fixtures[nxt].away = getWinner(f2); 
+                } 
+            };
+
+            // QF
+            ck(48, 49, 56); // M49 v M50 -> M57 (QF1)
+            ck(52, 53, 57); // M53 v M54 -> M58 (QF2)
+            ck(50, 51, 58); // M51 v M52 -> M59 (QF3)
+            ck(54, 55, 59); // M55 v M56 -> M60 (QF4)
+
+            // SF
+            ck(56, 57, 60); // QF1 v QF2 -> M61 (SF1)
+            ck(58, 59, 61); // QF3 v QF4 -> M62 (SF2)
+
+            // Final and 3rd Place
+            if(gameState.fixtures[60] && gameState.fixtures[61] && gameState.fixtures[60].played && gameState.fixtures[61].played && gameState.fixtures[62] && !gameState.fixtures[62].home) {
+                const s1 = gameState.fixtures[60], s2 = gameState.fixtures[61];
+                const w1 = getWinner(s1), l1 = w1 === s1.home ? s1.away : s1.home;
+                const w2 = getWinner(s2), l2 = w2 === s2.home ? s2.away : s2.home;
+
+                gameState.fixtures[62].home = l1; gameState.fixtures[62].away = l2; // 3rd Place
+                gameState.fixtures[63].home = w1; gameState.fixtures[63].away = w2; // Final
+            }
+        }
+
+        function recordStat(name, team, type) {
+            if(!name) return;
+            if(!gameState.playerStats[name]) {
+                const squad = gameState.squads[team];
+                const player = squad ? squad.find(p => p.name === name) : null;
+                gameState.playerStats[name] = { name, team, pos: player ? player.pos : "FLD", goals: 0, assists: 0 };
+            }
+            gameState.playerStats[name][type]++;
+        }
+
+        // ================= 2D Live Match Engine =================
+        let liveEng = { int: null, curMatch: null, mTime: 0, stTime: 0, hG: 0, aG: 0, poss: 'home', pIdx: 10, paused: 0, shH: 0, shA: 0, fH: 0, fA: 0, isScoring: false, period: 'REG' };
+        const dots = [];
+
+        function startLiveMatch() {
+            let nextM = gameState.fixtures.find(f => !f.played && f.home && f.away && (gameState.mode === 'spectator' || f.home === gameState.userTeam || f.away === gameState.userTeam));
+            if(!nextM) nextM = gameState.fixtures.find(f => !f.played && f.home && f.away);
+            if(!nextM) return;
+
+            liveEng = { int: null, curMatch: nextM, mTime: 0, stTime: 0, hG: 0, aG: 0, poss: 'home', pIdx: 10, paused: 0, shH:0, shA:0, fH:0, fA:0, isScoring: false, period: 'REG' };
+            
+            const stageHeaderEl = document.getElementById('sim-stage-header');
+            if(stageHeaderEl) {
+                stageHeaderEl.textContent = nextM.stageFull.includes('Group') ? `2018 FIFA WORLD CUP™ - GROUP ${nextM.groupCode}` : `2018 FIFA WORLD CUP™ - ${nextM.stageFull.toUpperCase()}`;
+            }
+
+            const homeCodeEl = document.getElementById('sim-home-code');
+            const awayCodeEl = document.getElementById('sim-away-code');
+            const homeFlagEl = document.getElementById('sim-home-flag');
+            const awayFlagEl = document.getElementById('sim-away-flag');
+            const homeScoreEl = document.getElementById('sim-home-score');
+            const awayScoreEl = document.getElementById('sim-away-score');
+            const addedTimeEl = document.getElementById('sim-added-time');
+            const commFeedEl = document.getElementById('sim-commentary-feed');
+            const engineStatusEl = document.getElementById('match-engine-status');
+            const periodEl = document.getElementById('sim-match-period');
+
+            if (homeCodeEl) homeCodeEl.textContent = getTeamObj(nextM.home).code;
+            if (awayCodeEl) awayCodeEl.textContent = getTeamObj(nextM.away).code;
+            if (homeFlagEl) homeFlagEl.src = getFlagUrl(getTeamObj(nextM.home).flag);
+            if (awayFlagEl) awayFlagEl.src = getFlagUrl(getTeamObj(nextM.away).flag);
+            if (homeScoreEl) homeScoreEl.textContent = "0"; 
+            if (awayScoreEl) awayScoreEl.textContent = "0";
+            if (addedTimeEl) addedTimeEl.classList.remove('opacity-100');
+            if (periodEl) periodEl.classList.add('hidden');
+            if (commFeedEl) commFeedEl.innerHTML = `<div class="text-wcYellow font-bold">[0'] Kickoff! ${nextM.home} vs ${nextM.away}.</div>`;
+            if (engineStatusEl) engineStatusEl.textContent = 'PLAYING';
+            
+            init2DPitch(nextM.home, nextM.away);
+            const modal = document.getElementById('match-modal');
+            if (modal) modal.classList.remove('hidden');
+
+            liveEng.int = setInterval(tickMatch, 600);
+        }
+
+        function init2DPitch(hTeam, aTeam) {
+            const pC = document.getElementById('pitch-dots-container'); 
+            if (!pC) return;
+            pC.innerHTML = ''; dots.length = 0;
+            
+            const hKit = TEAM_KITS[hTeam] || { f: "#e53935", b: "#fff" };
+            const aKit = TEAM_KITS[aTeam] || { f: "#1e88e5", b: "#fff" };
+
+            const bPos = {
+                home: [[5,50],[20,20],[15,40],[15,60],[20,80],[40,30],[35,50],[40,70],[60,20],[70,50],[60,80]],
+                away: [[95,50],[80,20],[85,40],[85,60],[80,80],[60,30],[65,50],[60,70],[40,20],[30,50],[40,80]]
+            };
+
+            ['home','away'].forEach(side => {
+                bPos[side].forEach((p, i) => {
+                    const el = document.createElement('div');
+                    el.className = `player-dot ${i===0?'dot-gk':''}`;
+                    if(i!==0) {
+                        el.style.background = side==='home' ? hKit.f : aKit.f;
+                        el.style.borderColor = side==='home' ? hKit.b : aKit.b;
+                    }
+                    el.style.left = p[0]+'%'; el.style.top = p[1]+'%';
+                    pC.appendChild(el);
+                    dots.push({ side, idx: i, el, bx: p[0], by: p[1], cx: p[0], cy: p[1] });
+                });
+            });
+            const ball = document.getElementById('match-ball');
+            if (ball) { ball.style.left = '50%'; ball.style.top = '50%'; }
+        }
+
+        function tickMatch() {
+            if(liveEng.paused > 0) { liveEng.paused--; return; }
+
+            if(liveEng.isScoring) {
+                liveEng.scoringTimer--;
+                if(liveEng.scoringTimer <= 0) {
+                    commitGoal(liveEng.scoringTeam, liveEng.scoringPlayer);
+                    liveEng.isScoring = false;
+                }
+                return;
+            }
+
+            liveEng.mTime++;
+            const maxMins = liveEng.period === 'REG' ? 90 : 120;
+            const addedTimeEl = document.getElementById('sim-added-time');
+            
+            if(liveEng.mTime > maxMins && liveEng.stTime > 0) {
+                if (addedTimeEl) { addedTimeEl.textContent = `+${liveEng.stTime}'`; addedTimeEl.classList.add('opacity-100'); }
+                liveEng.stTime--;
+            } else if(liveEng.mTime > maxMins && liveEng.stTime <= 0) {
+                const isKO = !liveEng.curMatch.stageFull.includes('Group');
+                if(isKO && liveEng.hG === liveEng.aG) {
+                    if(liveEng.period === 'REG') {
+                        liveEng.period = 'ET'; liveEng.mTime = 90; liveEng.curMatch.isAET = true;
+                        document.getElementById('sim-match-period').classList.remove('hidden');
+                        document.getElementById('sim-match-period').textContent = "AET";
+                        simCom(`[90'] Regulation ends in a draw! Extra Time starting.`, 'text-wcYellow font-bold');
+                        return;
+                    } else if (liveEng.period === 'ET') {
+                        liveEng.curMatch.hPens = Math.floor(Math.random()*2) + 3;
+                        liveEng.curMatch.aPens = Math.floor(Math.random()*2) + 3;
+                        if(liveEng.curMatch.hPens === liveEng.curMatch.aPens) liveEng.curMatch.hPens++;
+                        simCom(`[120'] PENS! ${liveEng.curMatch.home} ${liveEng.curMatch.hPens}-${liveEng.curMatch.aPens} ${liveEng.curMatch.away}!`, 'text-red-400 font-extrabold');
+                        endLiveMatchEarly();
+                        return;
+                    }
+                } else {
+                    endLiveMatchEarly(); return;
+                }
+            }
+
+            const clockEl = document.getElementById('sim-clock-display');
+            if (clockEl) clockEl.textContent = `${Math.min(maxMins, liveEng.mTime).toString().padStart(2,'0')}:${Math.floor(Math.random()*59).toString().padStart(2,'0')}`;
+            
+            const shHEl = document.getElementById('stat-sh-h'); if (shHEl) shHEl.textContent = liveEng.shH;
+            const shAEl = document.getElementById('stat-sh-a'); if (shAEl) shAEl.textContent = liveEng.shA;
+            const fHEl = document.getElementById('stat-f-h'); if (fHEl) fHEl.textContent = liveEng.fH;
+            const fAEl = document.getElementById('stat-f-a'); if (fAEl) fAEl.textContent = liveEng.fA;
+
+            const r = Math.random();
+            const actTeam = liveEng.poss; const defTeam = actTeam === 'home' ? 'away' : 'home';
+            const oppName = liveEng.curMatch[defTeam]; const actName = liveEng.curMatch[actTeam];
+            const squad = gameState.squads[actName];
+            const pName = squad && squad[liveEng.pIdx] ? squad[liveEng.pIdx].name : "Player";
+
+            if(r < 0.15) {
+                const fR = Math.random();
+                if(fR < 0.3) {
+                    if(actTeam === 'home') liveEng.fA++; else liveEng.fH++;
+                    liveEng.stTime += 1; liveEng.paused = 2;
+                    const engineStatusEl = document.getElementById('match-engine-status');
+                    if (engineStatusEl) engineStatusEl.textContent = 'FOUL';
+                    
+                    if(fR < 0.05) {
+                        simCom(`[${liveEng.mTime}'] PENALTY to ${actName}!`, 'text-red-400 font-bold');
+                        if(Math.random() < 0.75) {
+                            simCom(`[${liveEng.mTime}'] Penalty Shot...`, 'text-white');
+                            initiateGoalAnim(actTeam, pName); return;
+                        } else simCom(`[${liveEng.mTime}'] SAVED!`, 'text-gray-300');
+                    } else {
+                        simCom(`[${liveEng.mTime}'] Foul by ${oppName}. Free kick.`, 'text-yellow-600');
+                        flashPitch('bg-yellow-500');
+                    }
+                    setTimeout(()=> { const es = document.getElementById('match-engine-status'); if(es) es.textContent = 'PLAYING'; }, 1200);
+                } else {
+                    liveEng.poss = defTeam; liveEng.pIdx = Math.floor(Math.random()*10)+1;
+                    simCom(`[${liveEng.mTime}'] Interception by ${oppName}.`, 'text-gray-400');
+                }
+            } else if (r < 0.30) {
+                if(actTeam==='home') liveEng.shH++; else liveEng.shA++;
+                const isGoal = Math.random() < 0.25;
+                simCom(`[${liveEng.mTime}'] ${pName} shoots...`, 'text-white');
+                if(isGoal) {
+                    initiateGoalAnim(actTeam, pName); return;
+                }
+                else { simCom(`[${liveEng.mTime}'] Missed wide.`, 'text-gray-500'); liveEng.poss = defTeam; liveEng.pIdx = 0; }
+            } else if (r < 0.65) {
+                liveEng.pIdx = Math.floor(Math.random()*10)+1;
+            }
+
+            dots.forEach(d => {
+                if(d.side === liveEng.poss && d.idx === liveEng.pIdx) d.cx += (d.side==='home' ? 5 : -5) * Math.random();
+                else { d.cx = d.bx + (Math.random()*10 - 5); d.cy = d.by + (Math.random()*10 - 5); }
+                d.cx = Math.max(2, Math.min(98, d.cx)); d.cy = Math.max(2, Math.min(98, d.cy));
+                d.el.style.left = d.cx+'%'; d.el.style.top = d.cy+'%';
+            });
+
+            const cDot = dots.find(d => d.side === liveEng.poss && d.idx === liveEng.pIdx);
+            const ball = document.getElementById('match-ball');
+            if(cDot && ball) { ball.style.left = cDot.cx+'%'; ball.style.top = cDot.cy+'%'; }
+        }
+
+        function initiateGoalAnim(team, scorer) {
+            liveEng.isScoring = true;
+            liveEng.scoringTeam = team;
+            liveEng.scoringPlayer = scorer;
+            liveEng.scoringTimer = 2;
+            const ball = document.getElementById('match-ball');
+            if(ball) {
+                ball.style.left = team === 'home' ? '98%' : '2%';
+                ball.style.top = '50%';
+            }
+        }
+
+        function commitGoal(team, scorer) {
+            if(team==='home') liveEng.hG++; else liveEng.aG++;
+            const hScoreEl = document.getElementById('sim-home-score');
+            const aScoreEl = document.getElementById('sim-away-score');
+            if (hScoreEl) hScoreEl.textContent = liveEng.hG;
+            if (aScoreEl) aScoreEl.textContent = liveEng.aG;
+            
+            const squad = gameState.squads[liveEng.curMatch[team]];
+            let assister = squad[Math.floor(Math.random()*11)].name;
+            if (assister === scorer) assister = squad[5].name;
+            
+            recordStat(scorer, liveEng.curMatch[team], 'goals'); recordStat(assister, liveEng.curMatch[team], 'assists');
+
+            simCom(`[${liveEng.mTime}'] GOAL! ${scorer} (Assist: ${assister})!`, 'text-wcYellow font-extrabold text-sm');
+            flashPitch('bg-white');
+            liveEng.poss = team==='home'?'away':'home'; liveEng.pIdx = 10;
+            dots.forEach(d=>{ d.cx=d.bx; d.cy=d.by; d.el.style.left=d.cx+'%'; d.el.style.top=d.cy+'%'; });
+        }
+
+        function flashPitch(col) {
+            const ov = document.getElementById('pitch-overlay');
+            if (ov) { ov.className = `absolute inset-0 z-30 transition-opacity duration-300 pointer-events-none opacity-50 ${col}`; setTimeout(()=> ov.classList.remove('opacity-50'), 300); }
+        }
+
+        function simCom(txt, cls) {
+            const c = document.getElementById('sim-commentary-feed');
+            if (c) { c.innerHTML += `<div class="${cls} border-b border-white/5 pb-1">${txt}</div>`; c.scrollTop = c.scrollHeight; }
+        }
+
+        function endLiveMatchEarly() {
+            clearInterval(liveEng.int);
+            const isKO = !liveEng.curMatch.stageFull.includes('Group');
+
+            if(liveEng.mTime < 90 && liveEng.period === 'REG') {
+                const hOvr = getTeamOvrAvg(liveEng.curMatch.home), aOvr = getTeamOvrAvg(liveEng.curMatch.away);
+                const rem = (90 - liveEng.mTime)/90;
+                if(Math.random() < (hOvr>=aOvr?0.85:0.15)*rem) { liveEng.hG++; recordStat(gameState.squads[liveEng.curMatch.home][10].name, liveEng.curMatch.home, 'goals'); }
+                if(Math.random() < (aOvr>=hOvr?0.85:0.15)*rem) { liveEng.aG++; recordStat(gameState.squads[liveEng.curMatch.away][10].name, liveEng.curMatch.away, 'goals'); }
+            }
+
+            if(isKO && liveEng.hG === liveEng.aG) {
+                liveEng.curMatch.isAET = true;
+                if(Math.random()>0.7) { 
+                    if(Math.random()>0.5) { liveEng.hG++; recordStat(gameState.squads[liveEng.curMatch.home][9].name, liveEng.curMatch.home, 'goals'); } 
+                    else { liveEng.aG++; recordStat(gameState.squads[liveEng.curMatch.away][9].name, liveEng.curMatch.home, 'goals'); } 
+                }
+                else {
+                    liveEng.curMatch.hPens = Math.floor(Math.random()*2) + 3;
+                    liveEng.curMatch.aPens = Math.floor(Math.random()*2) + 3;
+                    if(liveEng.curMatch.hPens === liveEng.curMatch.aPens) liveEng.curMatch.hPens++;
+                }
+            }
+            
+            const matchModal = document.getElementById('match-modal');
+            if (matchModal) matchModal.classList.add('hidden');
+            finalizeMatch(liveEng.curMatch, liveEng.hG, liveEng.aG);
+            
+            if(gameState.mode === 'manager') {
+                const bgMatches =gameState.fixtures.filter(f => !f.played && f.home && f.stageFull === liveEng.curMatch.stageFull && f.id !== liveEng.curMatch.id);
+                bgMatches.forEach(m => calcMatchOVR(m));
+            }
+            
+            advanceTournamentPhases(); renderDashboard();
+        }
+    </script>
+</body>
+</html>
