@@ -765,8 +765,7 @@
                 { name: "Denis Cheryshev", pos: "LW", pac: 80, sho: 73, pas: 70, dri: 77, def: 36, phy: 62 },
                 { name: "Artem Dzyuba", pos: "ST", pac: 55, sho: 77, pas: 66, dri: 71, def: 38, phy: 84 }
             ]
-
-        };
+            };
 
         // Ordered exactly to create the correct schedule sequences
         const NATIONS = [
@@ -827,22 +826,18 @@
             const r = getTeamObj(teamName).rating;
             let starters = [];
             
-            if (ROSTERS[teamName]) {
-                starters = ROSTERS[teamName].map(p => ({ ...p, team: teamName }));
-            } else {
-                // All Generic Players
-                starters = ["GK", "RB", "CB", "CB", "LB", "CM", "CM", "RW", "AM", "LW", "ST"].map((pos, i) => ({
-                    name: `${teamName} Player ${i+1}`, pos, team: teamName,
-                    pac: Math.max(50, r - 15 + Math.floor(Math.random()*20)), sho: Math.max(50, r - 15 + Math.floor(Math.random()*20)),
-                    pas: Math.max(50, r - 15 + Math.floor(Math.random()*20)), dri: Math.max(50, r - 15 + Math.floor(Math.random()*20)),
-                    def: Math.max(50, r - 15 + Math.floor(Math.random()*20)), phy: Math.max(50, r - 15 + Math.floor(Math.random()*20))
-                }));
-            }
+            // All Generic Players
+            starters = ["GK", "RB", "CB", "CB", "LB", "CM", "CM", "RW", "AM", "LW", "ST"].map((pos, i) => ({
+                name: `${teamName} Player ${i+1}`, pos, team: teamName,
+                pac: Math.max(50, r - 15 + Math.floor(Math.random()*20)), sho: Math.max(50, r - 15 + Math.floor(Math.random()*20)),
+                pas: Math.max(50, r - 15 + Math.floor(Math.random()*20)), dri: Math.max(50, r - 15 + Math.floor(Math.random()*20)),
+                def: Math.max(50, r - 15 + Math.floor(Math.random()*20)), phy: Math.max(50, r - 15 + Math.floor(Math.random()*20))
+            }));
             
             const reservesPos = ["GK", "CB", "LB", "RB", "CM", "CM", "RM", "LM", "CAM", "ST", "ST", "RW"];
             for(let i=0; i<12; i++) {
                 starters.push({
-                    name: `${teamName} Res ${i+1}`, pos: reservesPos[i], team: teamName,
+                    name: `${teamName} Player ${i+12}`, pos: reservesPos[i], team: teamName,
                     pac: Math.max(40, r - 25 + Math.floor(Math.random()*20)), sho: Math.max(40, r - 25 + Math.floor(Math.random()*20)),
                     pas: Math.max(40, r - 25 + Math.floor(Math.random()*20)), dri: Math.max(40, r - 25 + Math.floor(Math.random()*20)),
                     def: Math.max(40, r - 25 + Math.floor(Math.random()*20)), phy: Math.max(40, r - 25 + Math.floor(Math.random()*20))
@@ -1407,145 +1402,347 @@
             if(hSq && aSq) {
                 for(let i=0; i<hG; i++) {
                     const scorer = hSq[10 - Math.floor(Math.random()*4)].name;
-                    let ass = hSq[Math.floor(Math.random()*11)].name;
-                    if(scorer !== ass) {
-                        if(!gameState.playerStats[scorer]) gameState.playerStats[scorer] = {name: scorer, team: m.home, pos: 'ATT', goals: 0, assists: 0};
-                        gameState.playerStats[scorer].goals++;
-                        if(!gameState.playerStats[ass]) gameState.playerStats[ass] = {name: ass, team: m.home, pos: 'MID', goals: 0, assists: 0};
-                        gameState.playerStats[ass].assists++;
-                    } else {
-                        if(!gameState.playerStats[scorer]) gameState.playerStats[scorer] = {name: scorer, team: m.home, pos: 'ATT', goals: 0, assists: 0};
-                        gameState.playerStats[scorer].goals++;
-                    }
+                    let assister = hSq[Math.floor(Math.random()*11)].name;
+                    if(assister === scorer) assister = hSq[5].name;
+                    recordStat(scorer, m.home, 'goals'); recordStat(assister, m.home, 'assists');
                 }
                 for(let i=0; i<aG; i++) {
                     const scorer = aSq[10 - Math.floor(Math.random()*4)].name;
-                    let ass = aSq[Math.floor(Math.random()*11)].name;
-                    if(scorer !== ass) {
-                        if(!gameState.playerStats[scorer]) gameState.playerStats[scorer] = {name: scorer, team: m.away, pos: 'ATT', goals: 0, assists: 0};
-                        gameState.playerStats[scorer].goals++;
-                        if(!gameState.playerStats[ass]) gameState.playerStats[ass] = {name: ass, team: m.away, pos: 'MID', goals: 0, assists: 0};
-                        gameState.playerStats[ass].assists++;
-                    } else {
-                        if(!gameState.playerStats[scorer]) gameState.playerStats[scorer] = {name: scorer, team: m.away, pos: 'ATT', goals: 0, assists: 0};
-                        gameState.playerStats[scorer].goals++;
-                    }
+                    let assister = aSq[Math.floor(Math.random()*11)].name;
+                    if(assister === scorer) assister = aSq[5].name;
+                    recordStat(scorer, m.away, 'goals'); recordStat(assister, m.away, 'assists');
                 }
             }
         }
-        
-        function finalizeMatch(m, hG, aG) {
-            m.played = true; m.hGoals = hG; m.aGoals = aG;
-            if(m.stageFull.includes('Group')) {
-                const g = m.groupCode;
-                const hT = gameState.groups[g].find(x => x.name === m.home);
-                const aT = gameState.groups[g].find(x => x.name === m.away);
-                hT.p++; aT.p++; hT.gf += hG; hT.ga += aG; aT.gf += aG; aT.ga += hG;
-                if(hG > aG) { hT.w++; hT.pts += 3; aT.l++; }
-                else if(aG > hG) { aT.w++; aT.pts += 3; hT.l++; }
-                else { hT.d++; aT.d++; hT.pts += 1; aT.pts += 1; }
-            } else {
-                let winner = m.home;
-                if (aG > hG || (m.hPens !== undefined && m.aPens > m.hPens)) winner = m.away;
-                m.winner = winner;
-                m.loser = winner === m.home ? m.away : m.home;
+
+        function finalizeMatch(m, h, a) {
+            m.played = true; m.hGoals = h; m.aGoals = a;
+            if(m.groupCode) {
+                const gt = gameState.groups[m.groupCode];
+                if (gt) {
+                    const th = gt.find(t=>t.name===m.home), ta = gt.find(t=>t.name===m.away);
+                    if (th && ta) {
+                        th.p++; ta.p++; th.gf+=h; th.ga+=a; ta.gf+=a; ta.ga+=h;
+                        if(h>a) { th.w++; th.pts+=3; ta.l++; } else if(a>h) { ta.w++; ta.pts+=3; th.l++; } else { th.d++; ta.d++; th.pts++; ta.pts++; }
+                    }
+                }
             }
         }
 
         function advanceTournamentPhases() {
-            const allGroupPlayed = gameState.fixtures.filter(f => f.stageFull.includes('Group')).every(f => f.played);
-            if(allGroupPlayed && !gameState.fixtures[48].home) {
-                const adv = {};
-                ['A','B','C','D','E','F','G','H'].forEach(g => {
-                    const tms = [...gameState.groups[g]].sort((a,b) => b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf);
-                    adv[g] = [tms[0].name, tms[1].name];
-                });
-                gameState.fixtures[48].home = adv['C'][0]; gameState.fixtures[48].away = adv['D'][1]; 
-                gameState.fixtures[49].home = adv['A'][0]; gameState.fixtures[49].away = adv['B'][1]; 
-                gameState.fixtures[50].home = adv['B'][0]; gameState.fixtures[50].away = adv['A'][1]; 
-                gameState.fixtures[51].home = adv['D'][0]; gameState.fixtures[51].away = adv['C'][1]; 
-                gameState.fixtures[52].home = adv['E'][0]; gameState.fixtures[52].away = adv['F'][1]; 
-                gameState.fixtures[53].home = adv['G'][0]; gameState.fixtures[53].away = adv['H'][1]; 
-                gameState.fixtures[54].home = adv['F'][0]; gameState.fixtures[54].away = adv['E'][1]; 
-                gameState.fixtures[55].home = adv['H'][0]; gameState.fixtures[55].away = adv['G'][1]; 
+            const p = gameState.fixtures.filter(f=>f.played).length;
+            
+            if(p >= 48 && gameState.fixtures[48] && !gameState.fixtures[48].home) {
+                const gR = (g, rank) => [...gameState.groups[g]].sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf)[rank-1].name;
+                
+                // M49 to M56 Assignment
+                gameState.fixtures[48].home = gR('A',1); gameState.fixtures[48].away = gR('B',2); // M49
+                gameState.fixtures[49].home = gR('C',1); gameState.fixtures[49].away = gR('D',2); // M50
+                gameState.fixtures[50].home = gR('B',1); gameState.fixtures[50].away = gR('A',2); // M51
+                gameState.fixtures[51].home = gR('D',1); gameState.fixtures[51].away = gR('C',2); // M52
+                gameState.fixtures[52].home = gR('E',1); gameState.fixtures[52].away = gR('F',2); // M53
+                gameState.fixtures[53].home = gR('G',1); gameState.fixtures[53].away = gR('H',2); // M54
+                gameState.fixtures[54].home = gR('F',1); gameState.fixtures[54].away = gR('E',2); // M55
+                gameState.fixtures[55].home = gR('H',1); gameState.fixtures[55].away = gR('G',2); // M56
             }
 
-            if(gameState.fixtures.slice(48,56).every(f=>f.played) && !gameState.fixtures[56].home) {
-                gameState.fixtures[56].home = gameState.fixtures[48].winner; gameState.fixtures[56].away = gameState.fixtures[49].winner;
-                gameState.fixtures[57].home = gameState.fixtures[52].winner; gameState.fixtures[57].away = gameState.fixtures[53].winner;
-                gameState.fixtures[58].home = gameState.fixtures[50].winner; gameState.fixtures[58].away = gameState.fixtures[51].winner;
-                gameState.fixtures[59].home = gameState.fixtures[54].winner; gameState.fixtures[59].away = gameState.fixtures[55].winner;
-            }
+            const getWinner = (m) => {
+                if(m.hGoals > m.aGoals) return m.home;
+                if(m.aGoals > m.hGoals) return m.away;
+                return m.hPens > m.aPens ? m.home : m.away;
+            };
 
-            if(gameState.fixtures.slice(56,60).every(f=>f.played) && !gameState.fixtures[60].home) {
-                gameState.fixtures[60].home = gameState.fixtures[56].winner; gameState.fixtures[60].away = gameState.fixtures[57].winner;
-                gameState.fixtures[61].home = gameState.fixtures[58].winner; gameState.fixtures[61].away = gameState.fixtures[59].winner;
-            }
+            const ck = (i1, i2, nxt) => { 
+                const f1 = gameState.fixtures[i1], f2 = gameState.fixtures[i2]; 
+                if(f1 && f2 && f1.played && f2.played && gameState.fixtures[nxt] && !gameState.fixtures[nxt].home){ 
+                    gameState.fixtures[nxt].home = getWinner(f1); 
+                    gameState.fixtures[nxt].away = getWinner(f2); 
+                } 
+            };
 
-            if(gameState.fixtures.slice(60,62).every(f=>f.played) && !gameState.fixtures[62].home) {
-                gameState.fixtures[62].home = gameState.fixtures[60].loser; gameState.fixtures[62].away = gameState.fixtures[61].loser;
-                gameState.fixtures[63].home = gameState.fixtures[60].winner; gameState.fixtures[63].away = gameState.fixtures[61].winner;
+            // QF
+            ck(48, 49, 56); // M49 v M50 -> M57 (QF1)
+            ck(52, 53, 57); // M53 v M54 -> M58 (QF2)
+            ck(50, 51, 58); // M51 v M52 -> M59 (QF3)
+            ck(54, 55, 59); // M55 v M56 -> M60 (QF4)
+
+            // SF
+            ck(56, 57, 60); // QF1 v QF2 -> M61 (SF1)
+            ck(58, 59, 61); // QF3 v QF4 -> M62 (SF2)
+
+            // Final and 3rd Place
+            if(gameState.fixtures[60] && gameState.fixtures[61] && gameState.fixtures[60].played && gameState.fixtures[61].played && gameState.fixtures[62] && !gameState.fixtures[62].home) {
+                const s1 = gameState.fixtures[60], s2 = gameState.fixtures[61];
+                const w1 = getWinner(s1), l1 = w1 === s1.home ? s1.away : s1.home;
+                const w2 = getWinner(s2), l2 = w2 === s2.home ? s2.away : s2.home;
+
+                gameState.fixtures[62].home = l1; gameState.fixtures[62].away = l2; // 3rd Place
+                gameState.fixtures[63].home = w1; gameState.fixtures[63].away = w2; // Final
             }
         }
-        
-        let liveMatchTimer = null;
-        let liveMatchState = null;
+
+        function recordStat(name, team, type) {
+            if(!name) return;
+            if(!gameState.playerStats[name]) {
+                const squad = gameState.squads[team];
+                const player = squad ? squad.find(p => p.name === name) : null;
+                gameState.playerStats[name] = { name, team, pos: player ? player.pos : "FLD", goals: 0, assists: 0 };
+            }
+            gameState.playerStats[name][type]++;
+        }
+
+        // ================= 2D Live Match Engine =================
+        let liveEng = { int: null, curMatch: null, mTime: 0, stTime: 0, hG: 0, aG: 0, poss: 'home', pIdx: 10, paused: 0, shH: 0, shA: 0, fH: 0, fA: 0, isScoring: false, period: 'REG' };
+        const dots = [];
 
         function startLiveMatch() {
             let nextM = gameState.fixtures.find(f => !f.played && f.home && f.away && (gameState.mode === 'spectator' || f.home === gameState.userTeam || f.away === gameState.userTeam));
             if(!nextM) nextM = gameState.fixtures.find(f => !f.played && f.home && f.away);
             if(!nextM) return;
 
-            liveMatchState = { m: nextM, min: 0, hG: 0, aG: 0 };
-            document.getElementById('sim-stage-header').textContent = nextM.stageFull;
-            document.getElementById('sim-home-flag').src = getFlagUrl(getTeamObj(nextM.home).flag);
-            document.getElementById('sim-away-flag').src = getFlagUrl(getTeamObj(nextM.away).flag);
-            document.getElementById('sim-home-code').textContent = getTeamObj(nextM.home).code;
-            document.getElementById('sim-away-code').textContent = getTeamObj(nextM.away).code;
-            document.getElementById('sim-home-score').textContent = "0";
-            document.getElementById('sim-away-score').textContent = "0";
-            document.getElementById('sim-clock-display').textContent = "00:00";
-            document.getElementById('sim-commentary-feed').innerHTML = "";
+            liveEng = { int: null, curMatch: nextM, mTime: 0, stTime: 0, hG: 0, aG: 0, poss: 'home', pIdx: 10, paused: 0, shH:0, shA:0, fH:0, fA:0, isScoring: false, period: 'REG' };
             
-            document.getElementById('match-modal').classList.remove('hidden');
+            const stageHeaderEl = document.getElementById('sim-stage-header');
+            if(stageHeaderEl) {
+                stageHeaderEl.textContent = nextM.stageFull.includes('Group') ? `2018 FIFA WORLD CUP™ - GROUP ${nextM.groupCode}` : `2018 FIFA WORLD CUP™ - ${nextM.stageFull.toUpperCase()}`;
+            }
 
-            liveMatchTimer = setInterval(() => {
-                liveMatchState.min += 3;
-                if(liveMatchState.min > 90) {
-                    clearInterval(liveMatchTimer);
-                    endLiveMatchEarly(true);
-                    return;
-                }
-                
-                let displayMin = liveMatchState.min < 10 ? `0${liveMatchState.min}` : liveMatchState.min;
-                document.getElementById('sim-clock-display').textContent = `${displayMin}:00`;
-                
-                if (Math.random() < 0.1) {
-                    let isHome = Math.random() > 0.5;
-                    if(isHome) { liveMatchState.hG++; document.getElementById('sim-home-score').textContent = liveMatchState.hG; }
-                    else { liveMatchState.aG++; document.getElementById('sim-away-score').textContent = liveMatchState.aG; }
-                    
-                    const feed = document.getElementById('sim-commentary-feed');
-                    feed.innerHTML = `<div class="text-wcYellow font-bold">${liveMatchState.min}' GOAL! ${isHome ? nextM.home : nextM.away} SCORES!</div>` + feed.innerHTML;
-                }
-            }, 200);
+            const homeCodeEl = document.getElementById('sim-home-code');
+            const awayCodeEl = document.getElementById('sim-away-code');
+            const homeFlagEl = document.getElementById('sim-home-flag');
+            const awayFlagEl = document.getElementById('sim-away-flag');
+            const homeScoreEl = document.getElementById('sim-home-score');
+            const awayScoreEl = document.getElementById('sim-away-score');
+            const addedTimeEl = document.getElementById('sim-added-time');
+            const commFeedEl = document.getElementById('sim-commentary-feed');
+            const engineStatusEl = document.getElementById('match-engine-status');
+            const periodEl = document.getElementById('sim-match-period');
+
+            if (homeCodeEl) homeCodeEl.textContent = getTeamObj(nextM.home).code;
+            if (awayCodeEl) awayCodeEl.textContent = getTeamObj(nextM.away).code;
+            if (homeFlagEl) homeFlagEl.src = getFlagUrl(getTeamObj(nextM.home).flag);
+            if (awayFlagEl) awayFlagEl.src = getFlagUrl(getTeamObj(nextM.away).flag);
+            if (homeScoreEl) homeScoreEl.textContent = "0"; 
+            if (awayScoreEl) awayScoreEl.textContent = "0";
+            if (addedTimeEl) addedTimeEl.classList.remove('opacity-100');
+            if (periodEl) periodEl.classList.add('hidden');
+            if (commFeedEl) commFeedEl.innerHTML = `<div class="text-wcYellow font-bold">[0'] Kickoff! ${nextM.home} vs ${nextM.away}.</div>`;
+            if (engineStatusEl) engineStatusEl.textContent = 'PLAYING';
+            
+            init2DPitch(nextM.home, nextM.away);
+            const modal = document.getElementById('match-modal');
+            if (modal) modal.classList.remove('hidden');
+
+            liveEng.int = setInterval(tickMatch, 600);
         }
 
-        function endLiveMatchEarly(natural = false) {
-            clearInterval(liveMatchTimer);
-            document.getElementById('match-modal').classList.add('hidden');
+        function init2DPitch(hTeam, aTeam) {
+            const pC = document.getElementById('pitch-dots-container'); 
+            if (!pC) return;
+            pC.innerHTML = ''; dots.length = 0;
             
-            if (!natural) {
-                quickSimulateAction(); 
-            } else {
-                if (liveMatchState.m.stageFull.includes('Group') === false && liveMatchState.hG === liveMatchState.aG) {
-                    quickSimulateAction();
+            const hKit = TEAM_KITS[hTeam] || { f: "#e53935", b: "#fff" };
+            const aKit = TEAM_KITS[aTeam] || { f: "#1e88e5", b: "#fff" };
+
+            const bPos = {
+                home: [[5,50],[20,20],[15,40],[15,60],[20,80],[40,30],[35,50],[40,70],[60,20],[70,50],[60,80]],
+                away: [[95,50],[80,20],[85,40],[85,60],[80,80],[60,30],[65,50],[60,70],[40,20],[30,50],[40,80]]
+            };
+
+            ['home','away'].forEach(side => {
+                bPos[side].forEach((p, i) => {
+                    const el = document.createElement('div');
+                    el.className = `player-dot ${i===0?'dot-gk':''}`;
+                    if(i!==0) {
+                        el.style.background = side==='home' ? hKit.f : aKit.f;
+                        el.style.borderColor = side==='home' ? hKit.b : aKit.b;
+                    }
+                    el.style.left = p[0]+'%'; el.style.top = p[1]+'%';
+                    pC.appendChild(el);
+                    dots.push({ side, idx: i, el, bx: p[0], by: p[1], cx: p[0], cy: p[1] });
+                });
+            });
+            const ball = document.getElementById('match-ball');
+            if (ball) { ball.style.left = '50%'; ball.style.top = '50%'; }
+        }
+
+        function tickMatch() {
+            if(liveEng.paused > 0) { liveEng.paused--; return; }
+
+            if(liveEng.isScoring) {
+                liveEng.scoringTimer--;
+                if(liveEng.scoringTimer <= 0) {
+                    commitGoal(liveEng.scoringTeam, liveEng.scoringPlayer);
+                    liveEng.isScoring = false;
+                }
+                return;
+            }
+
+            liveEng.mTime++;
+            const maxMins = liveEng.period === 'REG' ? 90 : 120;
+            const addedTimeEl = document.getElementById('sim-added-time');
+            
+            if(liveEng.mTime > maxMins && liveEng.stTime > 0) {
+                if (addedTimeEl) { addedTimeEl.textContent = `+${liveEng.stTime}'`; addedTimeEl.classList.add('opacity-100'); }
+                liveEng.stTime--;
+            } else if(liveEng.mTime > maxMins && liveEng.stTime <= 0) {
+                const isKO = !liveEng.curMatch.stageFull.includes('Group');
+                if(isKO && liveEng.hG === liveEng.aG) {
+                    if(liveEng.period === 'REG') {
+                        liveEng.period = 'ET'; liveEng.mTime = 90; liveEng.curMatch.isAET = true;
+                        document.getElementById('sim-match-period').classList.remove('hidden');
+                        document.getElementById('sim-match-period').textContent = "AET";
+                        simCom(`[90'] Regulation ends in a draw! Extra Time starting.`, 'text-wcYellow font-bold');
+                        return;
+                    } else if (liveEng.period === 'ET') {
+                        liveEng.curMatch.hPens = Math.floor(Math.random()*2) + 3;
+                        liveEng.curMatch.aPens = Math.floor(Math.random()*2) + 3;
+                        if(liveEng.curMatch.hPens === liveEng.curMatch.aPens) liveEng.curMatch.hPens++;
+                        simCom(`[120'] PENS! ${liveEng.curMatch.home} ${liveEng.curMatch.hPens}-${liveEng.curMatch.aPens} ${liveEng.curMatch.away}!`, 'text-red-400 font-extrabold');
+                        endLiveMatchEarly();
+                        return;
+                    }
                 } else {
-                    finalizeMatch(liveMatchState.m, liveMatchState.hG, liveMatchState.aG);
-                    showSimFlashResult(liveMatchState.m);
-                    advanceTournamentPhases();
+                    endLiveMatchEarly(); return;
                 }
             }
+
+            const clockEl = document.getElementById('sim-clock-display');
+            if (clockEl) clockEl.textContent = `${Math.min(maxMins, liveEng.mTime).toString().padStart(2,'0')}:${Math.floor(Math.random()*59).toString().padStart(2,'0')}`;
+            
+            const shHEl = document.getElementById('stat-sh-h'); if (shHEl) shHEl.textContent = liveEng.shH;
+            const shAEl = document.getElementById('stat-sh-a'); if (shAEl) shAEl.textContent = liveEng.shA;
+            const fHEl = document.getElementById('stat-f-h'); if (fHEl) fHEl.textContent = liveEng.fH;
+            const fAEl = document.getElementById('stat-f-a'); if (fAEl) fAEl.textContent = liveEng.fA;
+
+            const r = Math.random();
+            const actTeam = liveEng.poss; const defTeam = actTeam === 'home' ? 'away' : 'home';
+            const oppName = liveEng.curMatch[defTeam]; const actName = liveEng.curMatch[actTeam];
+            const squad = gameState.squads[actName];
+            const pName = squad && squad[liveEng.pIdx] ? squad[liveEng.pIdx].name : "Player";
+
+            if(r < 0.15) {
+                const fR = Math.random();
+                if(fR < 0.3) {
+                    if(actTeam === 'home') liveEng.fA++; else liveEng.fH++;
+                    liveEng.stTime += 1; liveEng.paused = 2;
+                    const engineStatusEl = document.getElementById('match-engine-status');
+                    if (engineStatusEl) engineStatusEl.textContent = 'FOUL';
+                    
+                    if(fR < 0.05) {
+                        simCom(`[${liveEng.mTime}'] PENALTY to ${actName}!`, 'text-red-400 font-bold');
+                        if(Math.random() < 0.75) {
+                            simCom(`[${liveEng.mTime}'] Penalty Shot...`, 'text-white');
+                            initiateGoalAnim(actTeam, pName); return;
+                        } else simCom(`[${liveEng.mTime}'] SAVED!`, 'text-gray-300');
+                    } else {
+                        simCom(`[${liveEng.mTime}'] Foul by ${oppName}. Free kick.`, 'text-yellow-600');
+                        flashPitch('bg-yellow-500');
+                    }
+                    setTimeout(()=> { const es = document.getElementById('match-engine-status'); if(es) es.textContent = 'PLAYING'; }, 1200);
+                } else {
+                    liveEng.poss = defTeam; liveEng.pIdx = Math.floor(Math.random()*10)+1;
+                    simCom(`[${liveEng.mTime}'] Interception by ${oppName}.`, 'text-gray-400');
+                }
+            } else if (r < 0.30) {
+                if(actTeam==='home') liveEng.shH++; else liveEng.shA++;
+                const isGoal = Math.random() < 0.25;
+                simCom(`[${liveEng.mTime}'] ${pName} shoots...`, 'text-white');
+                if(isGoal) {
+                    initiateGoalAnim(actTeam, pName); return;
+                }
+                else { simCom(`[${liveEng.mTime}'] Missed wide.`, 'text-gray-500'); liveEng.poss = defTeam; liveEng.pIdx = 0; }
+            } else if (r < 0.65) {
+                liveEng.pIdx = Math.floor(Math.random()*10)+1;
+            }
+
+            dots.forEach(d => {
+                if(d.side === liveEng.poss && d.idx === liveEng.pIdx) d.cx += (d.side==='home' ? 5 : -5) * Math.random();
+                else { d.cx = d.bx + (Math.random()*10 - 5); d.cy = d.by + (Math.random()*10 - 5); }
+                d.cx = Math.max(2, Math.min(98, d.cx)); d.cy = Math.max(2, Math.min(98, d.cy));
+                d.el.style.left = d.cx+'%'; d.el.style.top = d.cy+'%';
+            });
+
+            const cDot = dots.find(d => d.side === liveEng.poss && d.idx === liveEng.pIdx);
+            const ball = document.getElementById('match-ball');
+            if(cDot && ball) { ball.style.left = cDot.cx+'%'; ball.style.top = cDot.cy+'%'; }
+        }
+
+        function initiateGoalAnim(team, scorer) {
+            liveEng.isScoring = true;
+            liveEng.scoringTeam = team;
+            liveEng.scoringPlayer = scorer;
+            liveEng.scoringTimer = 2;
+            const ball = document.getElementById('match-ball');
+            if(ball) {
+                ball.style.left = team === 'home' ? '98%' : '2%';
+                ball.style.top = '50%';
+            }
+        }
+
+        function commitGoal(team, scorer) {
+            if(team==='home') liveEng.hG++; else liveEng.aG++;
+            const hScoreEl = document.getElementById('sim-home-score');
+            const aScoreEl = document.getElementById('sim-away-score');
+            if (hScoreEl) hScoreEl.textContent = liveEng.hG;
+            if (aScoreEl) aScoreEl.textContent = liveEng.aG;
+            
+            const squad = gameState.squads[liveEng.curMatch[team]];
+            let assister = squad[Math.floor(Math.random()*11)].name;
+            if (assister === scorer) assister = squad[5].name;
+            
+            recordStat(scorer, liveEng.curMatch[team], 'goals'); recordStat(assister, liveEng.curMatch[team], 'assists');
+
+            simCom(`[${liveEng.mTime}'] GOAL! ${scorer} (Assist: ${assister})!`, 'text-wcYellow font-extrabold text-sm');
+            flashPitch('bg-white');
+            liveEng.poss = team==='home'?'away':'home'; liveEng.pIdx = 10;
+            dots.forEach(d=>{ d.cx=d.bx; d.cy=d.by; d.el.style.left=d.cx+'%'; d.el.style.top=d.cy+'%'; });
+        }
+
+        function flashPitch(col) {
+            const ov = document.getElementById('pitch-overlay');
+            if (ov) { ov.className = `absolute inset-0 z-30 transition-opacity duration-300 pointer-events-none opacity-50 ${col}`; setTimeout(()=> ov.classList.remove('opacity-50'), 300); }
+        }
+
+        function simCom(txt, cls) {
+            const c = document.getElementById('sim-commentary-feed');
+            if (c) { c.innerHTML += `<div class="${cls} border-b border-white/5 pb-1">${txt}</div>`; c.scrollTop = c.scrollHeight; }
+        }
+
+        function endLiveMatchEarly() {
+            clearInterval(liveEng.int);
+            const isKO = !liveEng.curMatch.stageFull.includes('Group');
+
+            if(liveEng.mTime < 90 && liveEng.period === 'REG') {
+                const hOvr = getTeamOvrAvg(liveEng.curMatch.home), aOvr = getTeamOvrAvg(liveEng.curMatch.away);
+                const rem = (90 - liveEng.mTime)/90;
+                if(Math.random() < (hOvr>=aOvr?0.85:0.15)*rem) { liveEng.hG++; recordStat(gameState.squads[liveEng.curMatch.home][10].name, liveEng.curMatch.home, 'goals'); }
+                if(Math.random() < (aOvr>=hOvr?0.85:0.15)*rem) { liveEng.aG++; recordStat(gameState.squads[liveEng.curMatch.away][10].name, liveEng.curMatch.away, 'goals'); }
+            }
+
+            if(isKO && liveEng.hG === liveEng.aG) {
+                liveEng.curMatch.isAET = true;
+                if(Math.random()>0.7) { 
+                    if(Math.random()>0.5) { liveEng.hG++; recordStat(gameState.squads[liveEng.curMatch.home][9].name, liveEng.curMatch.home, 'goals'); } 
+                    else { liveEng.aG++; recordStat(gameState.squads[liveEng.curMatch.away][9].name, liveEng.curMatch.home, 'goals'); } 
+                }
+                else {
+                    liveEng.curMatch.hPens = Math.floor(Math.random()*2) + 3;
+                    liveEng.curMatch.aPens = Math.floor(Math.random()*2) + 3;
+                    if(liveEng.curMatch.hPens === liveEng.curMatch.aPens) liveEng.curMatch.hPens++;
+                }
+            }
+            
+            const matchModal = document.getElementById('match-modal');
+            if (matchModal) matchModal.classList.add('hidden');
+            finalizeMatch(liveEng.curMatch, liveEng.hG, liveEng.aG);
+            
+            if(gameState.mode === 'manager') {
+                const bgMatches =gameState.fixtures.filter(f => !f.played && f.home && f.stageFull === liveEng.curMatch.stageFull && f.id !== liveEng.curMatch.id);
+                bgMatches.forEach(m => calcMatchOVR(m));
+            }
+            
+            advanceTournamentPhases(); renderDashboard();
         }
     </script>
 </body>
